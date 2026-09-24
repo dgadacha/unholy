@@ -1,0 +1,63 @@
+<!doctype html><meta charset="utf-8"><base href="/"><title>Original weapons check</title>
+<canvas id="viewport"></canvas><div id="overlay"></div>
+<pre id="result" style="position:fixed;top:4px;left:4px;z-index:100;color:white;background:#111d;font:12px monospace;padding:8px;max-height:40vh;overflow:auto">Loading original weapons…</pre>
+<div id="controls" style="position:fixed;bottom:12px;left:12px;z-index:101"></div>
+<script type="module">
+import '/src/main.ts';
+import { OriginalAssets } from '/src/game/weapons/OriginalAssets.ts';
+import { OriginalWeaponRig, ORIGINAL_DIRECTORIES } from '/src/game/weapons/OriginalWeaponRig.ts';
+import * as THREE from 'three';
+const result=document.querySelector('#result'),controls=document.querySelector('#controls');
+const next=()=>new Promise(requestAnimationFrame);
+try {
+ while(!window.__q3?.session.currentLevel?.vfs) await next();
+ const s=window.__q3.session,level=s.currentLevel;
+ s.benchmark(3);
+ await s.effects.original.ready;
+ const assets=new OriginalAssets(level.vfs,level.textures,level.shaders);
+ const lines=[];
+ for(const id of Object.keys(ORIGINAL_DIRECTORIES)) {
+   const rig=await OriginalWeaponRig.load(assets,id);
+   if(!rig || rig.hand.model.frameCount<15 || !rig.gun.model.tagNames.includes('tag_flash')) throw Error(id+' missing original rig');
+   const before=rig.gun.group.position.clone();
+   rig.fire(); rig.update(0.08);
+   const after=rig.gun.group.position;
+   if(after.distanceTo(before)<1e-5) throw Error(id+' frozen animation');
+   lines.push(`PASS ${id}: ${rig.hand.model.frameCount} hand frames, barrel=${!!rig.barrel}, flash=${!!rig.flash}`);
+   rig.gun.dispose();rig.hand.dispose();rig.barrel?.dispose();rig.flash?.dispose();
+   const button=document.createElement('button');button.textContent=id;
+   button.onclick=async()=>{s.weapons.select(id);await s.viewModel.setWeapon(id);};controls.append(button);
+ }
+ const fire=document.createElement('button');fire.textContent='Fire preview';fire.onclick=()=>{
+  s.viewModel.fire(new THREE.Color('white'),true);
+  const direction=new THREE.Vector3();s.camera.getWorldDirection(direction);
+  const point=s.eye.clone().addScaledVector(direction,180);
+  s.effects.original.impact(s.weapons.currentId,point,direction.clone().negate());
+ };controls.append(fire);
+ for(const id of ['rocket','grenade','plasma','bfg']) {
+  const projectile=s.effects.original.projectile(id);
+  if(!projectile)throw Error(id+' missing original projectile');
+  if(projectile.isSprite)projectile.material.dispose();
+  lines.push('PASS '+id+' original projectile');
+ }
+ const direction=new THREE.Vector3();s.camera.getWorldDirection(direction);
+ const point=s.eye.clone().addScaledVector(direction,180);
+ for(const id of Object.keys(ORIGINAL_DIRECTORIES)) {
+   await s.viewModel.setWeapon(id);
+   s.viewModel.fire(new THREE.Color('white'),true);
+   s.effects.original.flash(id,point,direction);
+   s.effects.original.impact(id,point,direction.clone().negate());
+   s.effects.original.trail(id,point);
+   if(id==='railgun'||id==='lightning')s.effects.original.beam(id==='railgun'?'rail':'lightning',s.eye.clone().add(new THREE.Vector3(0,0,-12)),point,new THREE.Color('cyan'));
+   for(let frame=0;frame<12;frame++)await next();
+   if(s.renderer.webgl.info.programs.some(program=>program.diagnostics?.runnable===false))throw Error(id+' shader failed');
+   if(s.renderer.webgl.getContext().getError())throw Error(id+' WebGL error during shot');
+   lines.push('PASS '+id+' shot rendered');
+   result.textContent=lines.join('\n');
+ }
+ await s.viewModel.setWeapon('machinegun');
+ if(s.renderer.webgl.getContext().getError())throw Error('WebGL error');
+ lines.push('PASS original FX loaded / no WebGL errors');
+ result.textContent=lines.join('\n');
+}catch(error){result.textContent='FAIL '+error.stack;console.error(error);}
+</script>

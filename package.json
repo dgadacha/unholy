@@ -1,0 +1,24 @@
+{
+  "name": "unholy",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5214 --strictPort",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 5214 --strictPort",
+    "check": "tsc --noEmit",
+    "test": "esbuild tools/materials.test.ts --bundle --format=esm --platform=node --outfile=dist/materials.test.mjs --log-level=error && node dist/materials.test.mjs && esbuild tools/movement.test.ts --bundle --format=esm --platform=node --outfile=dist/movement.test.mjs --log-level=error && node dist/movement.test.mjs && esbuild tools/weapons.test.ts --bundle --format=esm --platform=node --outfile=dist/weapons.test.mjs --log-level=error && node dist/weapons.test.mjs",
+    "textures:generate": "python3 tools/texture-pipeline/index.py",
+    "models:enhance": "python3 tools/model-pipeline/enhance.py",
+    "textures:weapons": "python3 tools/texture-pipeline/index.py --weapons"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  },
+  "dependencies": {
+    "@types/three": "^0.169.0",
+    "three": "^0.169.0"
+  }
+}

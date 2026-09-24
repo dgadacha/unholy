@@ -1,0 +1,431 @@
+/*
+ * Menu principal.
+ *
+ * La composition est celle du jeu d'origine : noir, rouge, symbole. Le titre
+ * en haut, les entrees au centre en capitales, le symbole derriere elles, et
+ * une ligne discrete en bas. Ce qui est refait, c'est la finition : vraie
+ * typographie, decor rendu en temps reel derriere le menu, transitions
+ * courtes, et des tailles qui suivent l'ecran du 1080p au 4K.
+ *
+ * Aucun cadre autour des entrees : le menu d'epoque tenait par sa
+ * typographie, et c'est ce qui lui donne sa brutalite.
+ */
+
+:root {
+  --qr-bg: #050505;
+  --qr-red-dark: #4a0505;
+  --qr-red: #c51010;
+  --qr-red-active: #ff251a;
+  --qr-red-idle: #8b1717;
+  --qr-ember: #ff5a18;
+  --qr-text: #e8e8e8;
+  --qr-text-muted: #777777;
+  --qr-transition-fast: 110ms;
+  --qr-transition-normal: 180ms;
+  /*
+   * Police du menu : capitales condensees et angulaires. Les familles sont
+   * cherchees dans l'ordre sur la machine, et la derniere est la graisse la
+   * plus lourde du systeme, ce qui garde des lettres nettes en 4K.
+   */
+  --qr-font-display: 'Oswald', 'Archivo Narrow', 'Roboto Condensed',
+    'Helvetica Neue Condensed', 'Arial Narrow', 'Impact', system-ui, sans-serif;
+}
+
+.menu {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  /* Zone de securite : l'essentiel reste proche du centre, meme en tres large. */
+  padding: clamp(24px, 6vh, 72px) clamp(24px, 8vw, 160px);
+  font-family: var(--qr-font-display);
+  /*
+   * Le decor est rendu derriere : pas de fond opaque, seulement un
+   * assombrissement vers les bords pour garder les lettres lisibles.
+   */
+  background:
+    radial-gradient(ellipse 46% 34% at 50% 52%, rgba(3, 3, 4, 0.74) 0%, rgba(3, 3, 4, 0.16) 100%),
+    radial-gradient(ellipse at 50% 45%, rgba(5, 5, 5, 0.3) 0%, rgba(3, 3, 4, 0.88) 76%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.08) 28%, rgba(0, 0, 0, 0.8) 100%);
+  opacity: 0;
+  transition: opacity var(--qr-transition-normal) ease;
+  pointer-events: auto;
+}
+
+.menu--visible {
+  display: flex;
+  opacity: 1;
+}
+
+/* Titre : le logo porte le nom, tres present sans manger l'ecran. */
+.menu__title {
+  margin-top: clamp(8px, 4vh, 48px);
+  font-size: clamp(56px, 11vw, 168px);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ui-accent);
+  text-shadow: 0 0 32px rgba(0, 0, 0, 0.9);
+  /* Presence discrete : le titre respire sur cinq secondes, sans clignoter. */
+  animation: title-breathe 5.5s ease-in-out infinite;
+}
+
+@keyframes title-breathe {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 22px rgba(197, 16, 16, 0.22)) brightness(0.9);
+  }
+  50% {
+    filter: drop-shadow(0 0 30px rgba(197, 16, 16, 0.34)) brightness(1);
+  }
+}
+
+:root[data-reduced-motion='true'] .menu__title {
+  animation: none;
+}
+
+/* Symbole : gigantesque, presque noyé dans l'obscurite, derriere les entrees. */
+.menu__symbol {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(1000px, 78vw);
+  transform: translate(-50%, -44%);
+  opacity: 0.18;
+  pointer-events: none;
+  transition: opacity 320ms ease;
+}
+
+.menu__symbol path {
+  fill: var(--qr-red-dark);
+}
+
+.menu__symbol--pulse {
+  opacity: 0.28;
+}
+
+.menu__stage {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Un ecran par page du menu : ils glissent l'un vers l'autre. */
+.menu-screen {
+  position: absolute;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(6px, 0.9vh, 14px);
+  transition: opacity var(--qr-transition-normal) ease, transform var(--qr-transition-normal) ease;
+}
+
+.menu-screen--active {
+  display: flex;
+  opacity: 1;
+  transform: none;
+}
+
+.menu-screen--left {
+  display: flex;
+  opacity: 0;
+  transform: translateX(-40px);
+  pointer-events: none;
+}
+
+.menu-screen--right {
+  display: flex;
+  opacity: 0;
+  transform: translateX(40px);
+  pointer-events: none;
+}
+
+.menu-screen__title {
+  margin: 0 0 clamp(10px, 2vh, 26px);
+  font-size: clamp(14px, 1.2vw, 20px);
+  font-weight: 600;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: var(--qr-red);
+}
+
+/* Entree : rien qu'un mot, et le rouge qui dit s'il est choisi. */
+.menu-item {
+  position: relative;
+  appearance: none;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: clamp(22px, 2vw, 38px);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px clamp(28px, 3vw, 54px);
+  color: var(--qr-red-idle);
+  opacity: 0.7;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 2px 10px rgba(0, 0, 0, 0.85);
+  transition:
+    color var(--qr-transition-fast) ease,
+    opacity var(--qr-transition-fast) ease,
+    transform var(--qr-transition-fast) ease;
+}
+
+.menu-item--active {
+  color: var(--qr-red-active);
+  opacity: 1;
+  transform: scale(1.05);
+  text-shadow: 0 0 18px rgba(255, 37, 26, 0.45), 0 2px 6px rgba(0, 0, 0, 0.9);
+}
+
+.menu-item--minor {
+  font-size: clamp(13px, 1vw, 17px);
+  letter-spacing: 0.24em;
+  margin-top: clamp(8px, 1.6vh, 20px);
+  color: #6f1212;
+}
+
+.menu-item--minor.menu-item--active {
+  color: var(--qr-red);
+}
+
+.menu-item:disabled {
+  cursor: default;
+  opacity: 0.25;
+  transform: none;
+}
+
+.menu-item__note {
+  display: block;
+  margin-top: 4px;
+  font-size: clamp(9px, 0.7vw, 12px);
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  color: var(--qr-text-muted);
+}
+
+/*
+ * Selecteur : un fragment angulaire, pas une fleche d'interface. Il avance de
+ * trois pixels quand l'entree prend le focus, et rien de plus.
+ */
+.menu__selector {
+  position: absolute;
+  left: 0;
+  width: clamp(10px, 0.9vw, 16px);
+  height: clamp(10px, 0.9vw, 16px);
+  background: linear-gradient(180deg, var(--qr-ember), var(--qr-red));
+  clip-path: polygon(0 0, 100% 50%, 0 100%, 26% 50%);
+  opacity: 0;
+  transition:
+    top var(--qr-transition-fast) ease,
+    left var(--qr-transition-fast) ease,
+    opacity var(--qr-transition-fast) ease;
+  pointer-events: none;
+  filter: drop-shadow(0 0 8px rgba(255, 90, 24, 0.5));
+}
+
+.menu__selector--visible {
+  opacity: 1;
+}
+
+/* Carte de la partie : nom de la carte et son titre, rien d'autre. */
+.menu-card {
+  text-align: center;
+  margin-bottom: clamp(12px, 2.4vh, 32px);
+}
+
+.menu-card__map {
+  font-size: clamp(30px, 3.2vw, 58px);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--qr-text);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+}
+
+.menu-card__title {
+  margin-top: 6px;
+  font-size: clamp(11px, 1vw, 15px);
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--qr-red);
+}
+
+.menu-card__line {
+  margin-top: 10px;
+  font-size: clamp(10px, 0.8vw, 13px);
+  letter-spacing: 0.2em;
+  color: var(--qr-text-muted);
+}
+
+/* Credits : quelques lignes, la meme langue visuelle. */
+.menu-text {
+  max-width: min(620px, 80vw);
+  text-align: center;
+  font-family: var(--ui-font);
+  font-size: clamp(12px, 1vw, 15px);
+  line-height: 1.8;
+  letter-spacing: 0.04em;
+  color: var(--qr-text-muted);
+}
+
+.menu-text b {
+  color: var(--qr-text);
+  font-weight: 600;
+}
+
+/* Bas d'ecran : presque invisible, comme le demande la mise en page. */
+.menu__footer {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-family: var(--ui-font);
+  font-size: clamp(11px, 0.75vw, 13px);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--qr-text-muted);
+  opacity: 0.45;
+}
+
+.menu__footer b {
+  color: var(--qr-red);
+  font-weight: 600;
+}
+
+.menu__sources {
+  display: flex;
+  gap: 10px;
+}
+
+.menu__source {
+  appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--qr-text-muted);
+  cursor: pointer;
+}
+
+.menu__source--active,
+.menu__source:hover {
+  color: var(--qr-red-active);
+}
+
+.menu__notes {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  letter-spacing: 0.08em;
+  text-transform: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.menu__notes--error {
+  color: var(--qr-red-active);
+  opacity: 0.9;
+}
+
+/*
+ * Page de reglages : le nom a gauche, la valeur a droite, rien autour. C'est
+ * la disposition du menu d'origine, et elle se lit d'un coup d'oeil sans
+ * cadre, sans carte et sans interrupteur arrondi.
+ */
+.menu-settings {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1px, 0.2vh, 4px);
+  margin-bottom: clamp(10px, 2vh, 26px);
+  width: min(620px, 84vw);
+}
+
+.menu-setting {
+  /*
+   * Une ligne de reglage se lit, elle ne s'annonce pas : son nom est plus
+   * clair que celui d'une entree de menu, et c'est la valeur qui porte le
+   * rouge.
+   */
+  opacity: 1;
+  color: #8f8f93;
+  display: grid;
+  grid-template-columns: 1fr clamp(60px, 9vw, 120px) clamp(72px, 8vw, 110px);
+  align-items: center;
+  gap: clamp(10px, 1.4vw, 22px);
+  font-size: clamp(13px, 1.05vw, 18px);
+  letter-spacing: 0.14em;
+  padding: clamp(4px, 0.7vh, 9px) clamp(10px, 1vw, 18px);
+  transform: none;
+}
+
+.menu-setting.menu-item--active {
+  color: var(--qr-text);
+  transform: none;
+  background: linear-gradient(90deg, rgba(197, 16, 16, 0) 0%, rgba(197, 16, 16, 0.12) 50%, rgba(197, 16, 16, 0) 100%);
+}
+
+.menu-setting__label {
+  text-align: right;
+  color: inherit;
+}
+
+.menu-setting__value {
+  text-align: left;
+  font-weight: 700;
+  color: #e0521f;
+}
+
+.menu-setting.menu-item--active .menu-setting__value {
+  color: var(--qr-red-active);
+}
+
+/*
+ * Jauge d'une valeur continue : un rail sombre et un remplissage rouge, au
+ * trait, sans poignee ronde. Elle n'apparait que pour les reglages qui en ont
+ * une, et garde sa place dans les autres lignes pour que la colonne tienne.
+ */
+.menu-setting__bar {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.07);
+  opacity: 0;
+}
+
+.menu-setting__bar--visible {
+  opacity: 1;
+}
+
+.menu-setting__bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--qr-red-dark), var(--qr-red-active));
+  transition: width var(--qr-transition-fast) ease;
+}
+
+/*
+ * Reglages ouverts en pleine partie : le titre et le symbole s'effacent, et
+ * l'assombrissement reste leger pour qu'on voie ou l'on se trouve.
+ */
+.menu--overlay .menu__logo,
+.menu--overlay .menu__symbol {
+  display: none;
+}
+
+.menu--overlay {
+  background:
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(3, 3, 4, 0.82) 0%, rgba(3, 3, 4, 0.5) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.45) 40%, rgba(0, 0, 0, 0.8) 100%);
+  justify-content: center;
+}
+
+/* Le bas de page appartient au menu, pas a une pause : il s'efface, et le
+   HUD du joueur reste lisible dessous. */
+.menu--overlay .menu__footer {
+  display: none;
+}

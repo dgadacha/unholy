@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import * as THREE from 'three';
+import { weaponFrames, BarrelSpin } from '../src/game/weapons/OriginalWeaponRig';
+import { OriginalCombatEffects } from '../src/renderer/effects/OriginalCombatEffects';
+import { DynamicLightManager } from '../src/renderer/lighting/DynamicLightManager';
+import { WeaponSystem } from '../src/game/weapons/WeaponSystem';
+import type { Effects } from '../src/renderer/effects/Effects';
+assert.deepEqual(weaponFrames(0,20),{a:1,b:2,mix:0});
+assert.deepEqual(weaponFrames(0.125,20),{a:3,b:4,mix:0.5});
+assert.equal(weaponFrames(1,20).a,0);
+assert.equal(weaponFrames(0,40,true).a,6);
+assert.equal(weaponFrames(0.5,40,true).a,14);
+const spin=new BarrelSpin();spin.update(0,true);
+assert.ok(Math.abs(spin.update(0.1,true)-Math.PI/2)<1e-6);
+const end=spin.update(0.2,false);
+assert.ok(spin.update(0.5,false)>end);
+assert.equal(spin.update(2,false),spin.update(3,false));
+const original=new OriginalCombatEffects(new DynamicLightManager());
+assert.equal(original.enabled,false);
+// Deux instances d'impact ne doivent pas partager leur temps d'animation.
+original.clear();assert.equal(original.count,0);
+// Le rail reste visible lorsqu'il ne rencontre aucun mur.
+let rails=0,flashes=0;
+const effects={ original:{enabled:true,beam:()=>rails++,flash:()=>flashes++},lights:{},trails:{} } as unknown as Effects;
+const weapon=new WeaponSystem(effects,{} as never,1);
+weapon.firstPerson=true;
+weapon.select('railgun');
+weapon.setTrace((_start,end)=>({fraction:1,endPosition:end,normal:[0,0,1]} as never));
+weapon.setFiring(true);weapon.update(0.1,new THREE.Vector3(),new THREE.Vector3(1,0,0));
+assert.equal(rails,1);assert.equal(flashes,1);
+console.log('PASS original weapon frames, barrel coast, original rail on miss');

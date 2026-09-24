@@ -1,0 +1,28 @@
+node_modules
+dist
+.DS_Store
+
+# Donnees du jeu : elles restent sur votre machine.
+# Le dossier entier : il pointe vers votre installation du jeu.
+public/data/*
+!public/data/.gitkeep
+
+# Sources de reference du moteur d'origine : lues, jamais versionnees. Un lien
+# vers un dossier partage, d'ou l'absence de barre oblique.
+reference
+
+# Modeles haute definition : lourds, ils restent hors du depot.
+public/models/*
+!public/models/.gitkeep
+
+# Materiaux HD produits depuis les donnees du joueur : derives du jeu, donc
+# jamais dans le depot. Ici un lien vers le cache partage, d'ou l'absence de
+# barre oblique.
+public/generated
+
+# Binaire d agrandissement telecharge, avec ses modeles : outil externe, pas
+# du code du projet.
+tools/bin/
+
+# Cache de l interprete Python : produit a chaque execution de la chaine.
+__pycache__/
