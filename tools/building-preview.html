@@ -1,0 +1,26 @@
+<!doctype html><meta charset="utf-8"><base href="/"><title>UNHOLY · Level review</title>
+<canvas id="viewport"></canvas><div id="overlay"></div>
+<div style="position:fixed;z-index:10000;top:12px;left:12px;background:#171b19e0;color:#ddd;padding:12px;font:12px monospace">
+<button id="hall">Couloir</button><button id="room">Appartement</button><button id="stairs">Escalier</button><button id="top">Dernier étage</button><button id="gun">Fusil</button><button id="fire">Recul</button>
+<pre id="result">Chargement…</pre></div>
+<script type="module">
+import '/src/main.ts';
+import * as THREE from 'three';
+import { BUILDING_SCALE as SCALE } from '/src/game/unholy/scale.ts';
+import { PLAYER_MINS } from '/src/game/collision.ts';
+const next=()=>new Promise(requestAnimationFrame);
+while(!window.__unholy?.session.currentLevel) await next();
+const api=window.__unholy, s=api.session;
+await api.building();
+// Fixed review viewpoints, no pointer lock or moving opponents.
+s.setPaused(true);
+function view(x,y,z,yaw,pitch=0){s.leaveMenuView();s.setPaused(true);api.place(x*SCALE,y*SCALE,z*SCALE-PLAYER_MINS[2]+0.125,yaw*Math.PI/180,pitch*Math.PI/180);document.querySelector('#overlay').style.display='none';s.viewModel.setVisible(true);}
+document.querySelector('#hall').onclick=()=>view(-690,24,0,0);
+document.querySelector('#room').onclick=()=>view(-520,185,0,145,0);
+document.querySelector('#stairs').onclick=()=>view(-685,-207,0,-75,-4);
+document.querySelector('#top').onclick=()=>view(155,340,576,45,0);
+document.querySelector('#gun').onclick=async()=>{document.querySelector('#result').textContent=JSON.stringify(await api.rifle(),null,2);};
+document.querySelector('#fire').onclick=()=>s.viewModel.fire(new THREE.Color('white'),true);
+view(-690,24,0,0);
+document.querySelector('#result').textContent='Points de vue de validation';
+</script>

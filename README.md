@@ -6,7 +6,8 @@
 
 **Unholy** is an asymmetric horror shooter: four soldiers enter a condemned
 apartment block at night, four demons are already inside. The soldiers own the
-firing lines; the demons own the walls, the ceilings and the ducts. There is no
+firing lines; the demons own the walls, the ceilings and the stairwell void.
+There is no
 power in the building, so the soldiers see what their weapon lights see, and
 every death is final — no respawn, four against four down to one against one.
 
@@ -15,14 +16,15 @@ every death is final — no respawn, four against four down to one against one.
 ## Where this stands
 
 The building exists and it is dark. You can walk it: four floors, a corridor
-the length of the block, two apartments a floor, a stairwell, and a vent
-network that the soldiers cannot enter. Your rifle light is the only light you
-carry, and helicopter searchlights sweep the façades outside. That is the whole
-of it for now — the demons, the two teams and the match rules come next.
+the length of the block, two apartments a floor with a service door that lets
+you loop around a squad, and a stairwell whose central void runs the full
+height. Your rifle light is the only light you carry, and helicopter
+searchlights sweep the façades outside. That is the whole of it for now — the
+demons, the two teams and the match rules come next.
 
 ![The ground floor corridor, lit only by the rifle light](docs/immeuble-couloir.jpg)
 
-*The whole corridor is that beam. The ducting overhead is the demons' road.*
+*The whole corridor is that beam.*
 
 ![The assault rifle in hand, lit only by its own light](docs/arme.jpg)
 
@@ -37,10 +39,11 @@ What it can do, briefly:
 
 - **The building.** Built entirely by code, block by block: each block lays its
   geometry and its collision volume at the same time, so what you see is what
-  stops you, and there is no map editor or compiler in the loop. The vent
-  network is the one asymmetry in the plan — its mouths carry a volume that
-  stops a soldier and lets a demon through, which is the engine's own clip
-  mechanism, and the test walks every duct to prove it.
+  stops you, and there is no map editor or compiler in the loop. Four floors,
+  eight apartments, a corridor the length of the block and a stairwell of
+  double flights around a central void. The demons' routes are the walls, the
+  ceilings and that void — nothing the soldiers cannot also see, and the test
+  walks the ceiling of every corridor to prove it stays clear.
 - **The dark.** No sun, no ceiling lights, an ambient just above black. A
   shadow-casting spotlight rides the weapon; two more sweep the outside and come
   in through the windows. The beam's power was measured rather than guessed: a
@@ -127,7 +130,7 @@ src/
   game/         session, player movement, collision, weapons, entities
                 match/      fighters, damage, match rules, player models
                 bots/       navigation over the level's areas, behaviour
-                unholy/     the building: plan, vents, searchlights
+                unholy/     the building: plan, rooms, searchlights, scale
                 build/      lays a level block by block, geometry and collision
                 light/      the rifle light
                 benchmark/  camera path and measurement
@@ -138,7 +141,7 @@ tools/
   materials.test.ts     material and shader script tests
   movement.test.ts      step climbing test
   weapons.test.ts       weapon frames and rail behaviour
-  building.test.ts      the building: corridors, doors, stairs, vents
+  building.test.ts      the building: corridors, doors, loops, stairs, ceilings
   render-smoke.html     rendering smoke test
   profile.html          per-pass profiling
 public/
@@ -167,12 +170,13 @@ report "not blocked" as soon as one of its bumps ended in the clear, so step
 climbing was never attempted and the player stood in front of every staircase.
 
 The building one walks the building. Four of its assertions exist because the
-plan was wrong in ways nothing showed on screen: vent mouths pasted onto solid
-walls, every slab laid twice as a floor and as a ceiling, a stairwell door cut
-into a wall that was then laid solid over it, and a landing that stopped fifty
-units short of the wall, through which you fell down the shaft. It builds the
-level without rendering — the materials are painted into a canvas, which only a
-browser has — and asks the geometry whether you get through.
+plan was wrong in ways nothing showed on screen: openings pasted onto walls
+that were still solid behind them, every slab laid twice as a floor and as a
+ceiling, a stairwell door cut into a wall that was then laid solid over it, and
+a landing that stopped fifty units short of the wall, through which you fell
+down the shaft. It builds the level without rendering — the materials are
+painted into a canvas, which only a browser has — and asks the geometry whether
+you get through.
 
 ---
 

@@ -25,37 +25,27 @@ import type { WeaponRig } from './WeaponRig';
  * longueur qu'on lui donne dans le monde, et le point ou on la tient, en avant,
  * a droite et en bas du regard.
  */
-/*
- * Valeurs reglees a la mesure ET en regardant l'image, avec
- * `__unholy.rifle()` : la silhouette de l'arme est projetee a l'ecran, et une
- * capture dit ce que les chiffres ne disent pas.
- *
- * Ce qu'il fallait obtenir : l'arme entre par le bord droit, la crosse coupee
- * par le coin, la carcasse et le viseur entiers, le canon vers le viseur. Donc
- * une silhouette qui va de 0,55 a 1,00 en largeur et de 0,57 a 1,00 en hauteur.
- * Une arme qui s'arrete avant les bords flotte : c'est le decoupage par le coin
- * qui la fait tenir dans une main qu'on ne voit pas.
- *
- * Le signe de l'ouverture est ce qui a demande le plus d'essais. Vers
- * l'exterieur, le canon part a droite de l'ecran et l'arme se lit a l'envers ;
- * c'est vers l'interieur qu'elle converge vers le viseur, comme une arme tenue
- * a l'epaule.
+/**
+ * Vue FPS depuis l'epaule : le centre du fusil reste proche de l'oeil,
+ * sans lacet de presentation. La crosse est derriere le cadrage et le
+ * boitier rejoint le bord inferieur ; seuls l'optique et l'avant sont exposes.
+ * Valide visuellement dans building-preview, avec le recul actif.
  */
 export const RIFLE_HOLD = {
   /** Longueur de l'arme dans le monde, en unites de carte. */
-  length: 20,
+  length: 26,
   /** Distance devant l'oeil du centre de l'arme. */
-  forward: 18,
+  forward: 9,
   /** Decalage a droite, et vers le bas. */
-  right: 8,
-  down: 7.5,
+  right: 4,
+  down: 7,
   /** Ouverture vers l'interieur, en degres, et inclinaison. */
-  yaw: 24,
-  roll: 5,
+  yaw: 0,
+  roll: 0,
 };
 
 /** Recul d'un coup : retrait le long du canon, en fraction de la longueur. */
-const KICK_BACK = 0.08;
+const KICK_BACK = 0.035;
 /** Et le nez qui se leve, en radians. */
 const KICK_RISE = 0.06;
 /** Temps de retour a la pose, en secondes. */
@@ -100,7 +90,7 @@ export class GlbWeaponRig implements WeaponRig {
 
     // Le modele est deja ramene a une longueur de un, canon vers l'avant.
     const box = new THREE.Box3().setFromObject(model);
-    const muzzleAt = new THREE.Vector3(box.max.x, (box.min.z + box.max.z) / 2, 0);
+    const muzzleAt = new THREE.Vector3(box.max.x, (box.min.y + box.max.y) / 2, (box.min.z + box.max.z) / 2);
     return new GlbWeaponRig(model, muzzleAt);
   }
 

@@ -114,7 +114,7 @@ function finish(texture: THREE.Texture, srgb: boolean): THREE.Texture {
   return texture;
 }
 
-export type SurfaceKind = 'metal' | 'floor' | 'trim' | 'rock' | 'grate' | 'glow' | 'water';
+export type SurfaceKind = 'metal' | 'floor' | 'trim' | 'rock' | 'grate' | 'glow' | 'water' | 'plaster' | 'wood' | 'fabric' | 'tile';
 
 /** Fabrique la couleur, le relief et la rugosite d'une surface. */
 export function surfaceTextures(kind: SurfaceKind, tint = '#6b7078'): SurfaceTextures {
@@ -143,6 +143,34 @@ export function surfaceTextures(kind: SurfaceKind, tint = '#6b7078'): SurfaceTex
       let roughness = 0.55 + noise * 0.2;
 
       switch (kind) {
+        case 'plaster': {
+          shade = 0.78 + noise * 0.28;
+          bump = noise * 0.035;
+          roughness = 0.94;
+          break;
+        }
+        case 'wood': {
+          const seam = y % 32 < 2 || (x + Math.floor(y / 32) * 83) % 128 < 2;
+          const grainLine = Math.sin(x * 0.05 + Math.sin(y * 0.13) * 2 + noise * 4);
+          shade = seam ? 0.38 : 0.8 + grainLine * 0.1 + noise * 0.22;
+          bump = seam ? -0.08 : grainLine * 0.018;
+          roughness = 0.74;
+          break;
+        }
+        case 'fabric': {
+          shade = 0.82 + noise * 0.22 + ((x + y) % 2) * 0.04;
+          bump = noise * 0.025;
+          roughness = 1;
+          break;
+        }
+        case 'tile': {
+          const seam = x % 64 < 2 || y % 64 < 2;
+          const checker = (Math.floor(x / 64) + Math.floor(y / 64)) % 2;
+          shade = seam ? 0.28 : (checker ? 0.62 : 1.05) + noise * 0.08;
+          bump = seam ? -0.06 : noise * 0.01;
+          roughness = 0.58;
+          break;
+        }
         case 'metal': {
           // Panneaux rives, separes par des rainures.
           const cell = 64;

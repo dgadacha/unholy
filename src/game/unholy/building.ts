@@ -1,7 +1,10 @@
 import * as THREE from 'three';
-import { Contents, type Vec3 } from '../../formats/bsp';
-import { CollisionWorld } from '../collision';
+import { type Vec3 } from '../../formats/bsp';
+import { BUILDING_SCALE, buildingPoint } from './scale';
+import { CollisionWorld, boxBrush, PLAYER_MINS } from '../collision';
 import { BlockBuilder } from '../build/BlockBuilder';
+import { Residential } from './residential';
+import type { SurfaceKind } from '../../renderer/materials/Procedural';
 import type { Level, SpawnPoint } from '../level';
 
 /**
@@ -25,9 +28,7 @@ import type { Level, SpawnPoint } from '../level';
  * Une cage d'escalier au sud-ouest, ouverte sur toute la hauteur : le seul
  * endroit ou les deux camps voient loin verticalement.
  *
- * Un reseau de ventilation ferme aux militaires : une gaine par etage le long
- * du couloir, une colonne au sud-est qui relie les quatre etages. Ce n'est pas
- * un teleporteur, on y rampe, et cela s'entend a travers les cloisons.
+ * Les demons utilisent les murs, les plafonds et le vide de la cage.
  */
 
 /** Hauteur d'un etage, du sol au sol suivant. */
@@ -51,24 +52,9 @@ const HALL = 96;
 const STAIR_X0 = -768;
 const STAIR_X1 = -352;
 const STAIR_DOOR = -568;
-/** Ou la gaine du couloir s'arrete, avant la colonne verticale. */
-const DUCT_EAST = 640;
 /** Passage de porte : large et haut de quoi passer en courant. */
 const DOOR_W = 80;
 const DOOR_H = 112;
-/** Section interieure d'une gaine de ventilation. */
-const VENT = 72;
-
-/** Axe de la colonne de ventilation, et la tremie qu'elle demande. */
-const SHAFT_X = DUCT_EAST + VENT / 2 + 8;
-const SHAFT_Y = -HALL + VENT / 2 + 8;
-const SHAFT_HOLE = {
-  x0: SHAFT_X - VENT / 2 - 12,
-  x1: SHAFT_X + VENT / 2 + 12,
-  y0: SHAFT_Y - VENT / 2 - 12,
-  y1: SHAFT_Y + VENT / 2 + 12,
-};
-
 /**
  * Teintes du batiment : du beton, du platre sale, du bois, du metal.
  *
@@ -78,13 +64,12 @@ const SHAFT_HOLE = {
  * une cloison proche reste lisible sans ecraser le reste de l'image.
  */
 const CONCRETE = '#232220';
-const PLASTER = '#332e28';
-const WOOD = '#241c15';
+const PLASTER = '#817764';
+const WOOD = '#594632';
 const DOORWAY = '#191512';
-const DUCT = '#2b2e31';
 const GLASS = '#8fb6d8';
 
-type Kind = 'floor' | 'rock' | 'metal' | 'trim' | 'grate' | 'glow' | 'water';
+type Kind = SurfaceKind;
 
 class Building {
   readonly builder: BlockBuilder;
@@ -104,33 +89,12 @@ class Building {
   }
 
   /**
-   * Dalle percee d'une tremie rectangulaire : c'est par la que passe la colonne
-   * de ventilation, qui traverse les quatre etages dans l'air du couloir. Sans
-   * la tremie, chaque plancher coupait la colonne, et elle ne reliait rien.
-   */
-  slabWithHole(
-    x0: number,
-    x1: number,
-    y0: number,
-    y1: number,
-    z: number,
-    hole: { x0: number; x1: number; y0: number; y1: number },
-    kind: Kind = 'floor',
-    tint = CONCRETE,
-  ): void {
-    this.slab(x0, hole.x0, y0, y1, z, kind, tint);
-    this.slab(hole.x1, x1, y0, y1, z, kind, tint);
-    this.slab(hole.x0, hole.x1, y0, hole.y0, z, kind, tint);
-    this.slab(hole.x0, hole.x1, hole.y1, y1, z, kind, tint);
-  }
-
-  /**
    * Cloison pleine, entre deux hauteurs. Le platre des cloisons prend le motif
    * a grands panneaux : celui de la pierre dessine des fissures, qui se
    * lisaient comme un defaut de texture sous le faisceau.
    */
   wall(x0: number, x1: number, y0: number, y1: number, z: number, height: number, tint = PLASTER): void {
-    const kind = tint === CONCRETE ? 'rock' : 'floor';
+    const kind = 'plaster';
     this.builder.block([x0, y0, z], [x1, y1, z + height], { kind, tint });
   }
 
@@ -190,12 +154,14 @@ class Building {
   }
 
   /**
-   * Cloison percee de trous rectangulaires.
+   * Cloison percee de trous rectangulaires : portes, portes de service,
+   * fenetres.
    *
-   * Le constructeur ne sait pas creuser : un bloc est plein. Un passage se fait
-   * donc en posant les morceaux autour du vide, et c'est ce que fait cette
-   * aide. Sans elle, une bouche de ventilation collee sur un mur plein ne
-   * menait nulle part, ce que la mesure a fini par dire.
+   * Le constructeur ne sait pas creuser, un bloc etant plein. Un passage se
+   * fait donc en posant les morceaux autour du vide, et c'est ce que fait cette
+   * aide. Sans elle, une ouverture n'etait qu'un encadrement pose sur un mur
+   * plein, ce que seule la mesure disait : a l'ecran, la porte avait l'air
+   * d'une porte.
    */
   pierced(
     axis: 'x' | 'y',
@@ -263,6 +229,8 @@ class Building {
       const a0 = at - holeWidth / 2;
       const a1 = at + holeWidth / 2;
       if (axis === 'x') {
+        this.builder.block([at - 3, fixed0 + 10, z + sill], [at + 3, fixed1 - 10, z + top], { kind: 'wood', tint: '#605744' });
+        this.builder.block([a0, fixed0 + 10, z + 100], [a1, fixed1 - 10, z + 105], { kind: 'wood', tint: '#605744' });
         this.wall(a0, a1, fixed0, fixed1, z, sill, CONCRETE);
         this.wall(a0, a1, fixed0, fixed1, z + top, height - top, CONCRETE);
         this.builder.block([a0, fixed0 + 12, z + sill], [a1, fixed1 - 12, z + top], {
@@ -285,112 +253,6 @@ class Building {
   }
 
   /**
-   * Segments d'une paroi percee d'ouvertures, le long d'un axe. Une paroi de
-   * gaine posee d'un seul tenant bouchait ses propres bouches : la grille etait
-   * collee sur du plein, et personne ne pouvait entrer.
-   */
-  private segments(a0: number, a1: number, gaps: number[], width: number, place: (b0: number, b1: number) => void): void {
-    let cursor = a0;
-    for (const at of [...gaps].sort((x, y) => x - y)) {
-      const g0 = at - width / 2;
-      const g1 = at + width / 2;
-      if (g1 <= a0 || g0 >= a1) continue;
-      if (g0 - cursor > 1) place(cursor, g0);
-      cursor = Math.max(cursor, g1);
-    }
-    if (a1 - cursor > 1) place(cursor, a1);
-  }
-
-  /**
-   * Gaine de ventilation : quatre parois minces autour d'un vide. Le vide est
-   * un vrai espace, on y rampe ; les militaires en sont exclus par les bouches,
-   * pas par la gaine elle-meme.
-   *
-   * La paroi nord est posee en morceaux : les bouches y font de vrais trous,
-   * par lesquels on passe du couloir a la gaine.
-   */
-  ductX(x0: number, x1: number, yCenter: number, zBottom: number, mouths: number[] = []): void {
-    const y0 = yCenter - VENT / 2;
-    const y1 = yCenter + VENT / 2;
-    const t = 8;
-    this.builder.block([x0, y0 - t, zBottom - t], [x1, y1 + t, zBottom], { kind: 'metal', tint: DUCT });
-    this.builder.block([x0, y0 - t, zBottom + VENT], [x1, y1 + t, zBottom + VENT + t], { kind: 'metal', tint: DUCT });
-    this.builder.block([x0, y0 - t, zBottom], [x1, y0, zBottom + VENT], { kind: 'metal', tint: DUCT });
-    this.segments(x0, x1, mouths, VENT, (a0, a1) => {
-      this.builder.block([a0, y1, zBottom], [a1, y1 + t, zBottom + VENT], { kind: 'metal', tint: DUCT });
-    });
-  }
-
-  /** Antenne le long de l'axe des y : du couloir vers un appartement. */
-  ductY(xCenter: number, y0: number, y1: number, zBottom: number): void {
-    const x0 = xCenter - VENT / 2;
-    const x1 = xCenter + VENT / 2;
-    const t = 8;
-    this.builder.block([x0 - t, y0, zBottom - t], [x1 + t, y1, zBottom], { kind: 'metal', tint: DUCT });
-    this.builder.block([x0 - t, y0, zBottom + VENT], [x1 + t, y1, zBottom + VENT + t], {
-      kind: 'metal',
-      tint: DUCT,
-    });
-    this.builder.block([x0 - t, y0, zBottom], [x0, y1, zBottom + VENT], { kind: 'metal', tint: DUCT });
-    this.builder.block([x1, y0, zBottom], [x1 + t, y1, zBottom + VENT], { kind: 'metal', tint: DUCT });
-  }
-
-  /**
-   * Meme chose, verticale : la colonne qui relie les etages. Sa paroi ouest est
-   * percee a la hauteur de la gaine de chaque etage, sinon la colonne ne
-   * communique avec rien.
-   */
-  ductZ(xCenter: number, yCenter: number, z0: number, z1: number, junctions: number[] = []): void {
-    const x0 = xCenter - VENT / 2;
-    const x1 = xCenter + VENT / 2;
-    const y0 = yCenter - VENT / 2;
-    const y1 = yCenter + VENT / 2;
-    const t = 8;
-    this.segments(z0, z1, junctions, VENT, (a0, a1) => {
-      this.builder.block([x0 - t, y0 - t, a0], [x0, y1 + t, a1], { kind: 'metal', tint: DUCT });
-    });
-    this.builder.block([x1, y0 - t, z0], [x1 + t, y1 + t, z1], { kind: 'metal', tint: DUCT });
-    this.builder.block([x0, y0 - t, z0], [x1, y0, z1], { kind: 'metal', tint: DUCT });
-    this.builder.block([x0, y1, z0], [x1, y1 + t, z1], { kind: 'metal', tint: DUCT });
-  }
-
-  /**
-   * Bouche d'aeration : une grille, et derriere elle un volume qui arrete les
-   * militaires sans arreter les demons. C'est le meme procede que les volumes
-   * de blocage des cartes d'origine : la trace du joueur compte ce contenu
-   * comme solide, celle du demon l'ignore.
-   */
-  ventMouth(axis: 'x' | 'y', at: number, cross: number, z: number): void {
-    const half = VENT / 2;
-    if (axis === 'y') {
-      // Bouche percee dans un mur perpendiculaire a l'axe des y.
-      this.builder.block([at - half, cross - 4, z], [at + half, cross + 4, z + VENT], {
-        kind: 'grate',
-        tint: DUCT,
-        solid: false,
-        shadow: false,
-      });
-      this.builder.block([at - half, cross - 12, z], [at + half, cross + 12, z + VENT], {
-        kind: 'grate',
-        solid: false,
-        contents: Contents.PLAYERCLIP,
-      });
-      return;
-    }
-    this.builder.block([cross - 4, at - half, z], [cross + 4, at + half, z + VENT], {
-      kind: 'grate',
-      tint: DUCT,
-      solid: false,
-      shadow: false,
-    });
-    this.builder.block([cross - 12, at - half, z], [cross + 12, at + half, z + VENT], {
-      kind: 'grate',
-      solid: false,
-      contents: Contents.PLAYERCLIP,
-    });
-  }
-
-  /**
    * Un etage d'escalier : deux demi-volees et deux paliers, en marches de seize
    * unites, la hauteur que le deplacement franchit sans sauter.
    *
@@ -403,8 +265,8 @@ class Building {
   stairFloor(zStart: number): void {
     const half = PITCH / 32;
     const depth = 40;
-    const westX: [number, number] = [STAIR_X0 + 32, STAIR_X0 + 192];
-    const eastX: [number, number] = [STAIR_X1 - 192, STAIR_X1 - 32];
+    const westX: [number, number] = [STAIR_X0 + 32, STAIR_X0 + 160];
+    const eastX: [number, number] = [STAIR_X1 - 160, STAIR_X1 - 32];
 
     // Palier haut, devant la porte du couloir : il recoit aussi la derniere
     // marche de la volee montante de l'etage du dessous.
@@ -438,21 +300,17 @@ class Building {
  * fermee : un appartement doit se traverser, sans quoi les demons n'y
  * contournent rien.
  */
-function apartment(b: Building, x0: number, x1: number, z: number, doorAt: number, ventAt: number): void {
+function apartment(b: Building, x0: number, x1: number, z: number, doorAt: number): void {
   const yFront = HALL + SLAB;
   const yBack = Y1;
   const midY = yFront + (yBack - yFront) * 0.45;
   const midX = (x0 + x1) / 2;
 
-  // Sol en bois, et mur sur le couloir perce de deux choses : la porte
-  // d'entree, et le passage de l'antenne de ventilation sous le plafond. Le
-  // plafond, lui, est le plancher de l'etage du dessus : il n'est pose qu'une
-  // fois, par lui.
-  b.slab(x0, x1, yFront, yBack, z, 'floor', WOOD);
-  const ductGap = { at: ventAt, width: VENT + 16, bottom: z + ROOM - VENT - 16, tall: VENT + 16 };
+  // Deux portes sur le couloir ; le reste de la cloison est plein.
+  b.slab(x0, x1, yFront, yBack, z, 'wood', WOOD);
   b.pierced('x', x0, x1, HALL, yFront, z, ROOM, [
     { at: doorAt, width: DOOR_W, bottom: z, tall: DOOR_H },
-    ductGap,
+    { at: x0 < 0 ? -672 : 672, width: DOOR_W, bottom: z, tall: DOOR_H },
   ]);
 
   // Refend qui separe le sejour des chambres, avec deux passages.
@@ -480,49 +338,55 @@ function apartment(b: Building, x0: number, x1: number, z: number, doorAt: numbe
 export function buildBuilding(visual = true): Level {
   const b = new Building(visual);
   const builder = b.builder;
+  const decor = new Residential(builder, visual);
   const top = FLOORS * PITCH;
 
   // Enveloppe : quatre facades et le toit, pleines sur toute la hauteur. Les
   // baies sont percees etage par etage dans les facades nord et pignons.
-  builder.block([X0 - SLAB, Y0 - SLAB, -SLAB], [X1 + SLAB, Y0, top + SLAB], { kind: 'rock', tint: CONCRETE });
-  builder.block([X0 - SLAB, Y0 - SLAB, -SLAB], [X0, Y1 + SLAB, top + SLAB], { kind: 'rock', tint: CONCRETE });
-  builder.block([X1, Y0 - SLAB, -SLAB], [X1 + SLAB, Y1 + SLAB, top + SLAB], { kind: 'rock', tint: CONCRETE });
-  builder.block([X0 - SLAB, Y1 + SLAB, -SLAB], [X1 + SLAB, Y1 + SLAB * 2, top + SLAB], {
-    kind: 'rock',
-    tint: CONCRETE,
-  });
+  builder.block([STAIR_X1, Y0 - SLAB, -SLAB], [X1 + SLAB, Y0, top + SLAB], { kind: 'plaster', tint: CONCRETE });
+  builder.block([X0 - SLAB, Y0 - SLAB, -SLAB], [X0, Y1 + SLAB, top + SLAB], { kind: 'plaster', tint: CONCRETE });
+  builder.block([X1, Y0 - SLAB, -SLAB], [X1 + SLAB, Y1 + SLAB, top + SLAB], { kind: 'plaster', tint: CONCRETE });
+
   builder.block([X0 - SLAB, Y0 - SLAB, top + SLAB], [X1 + SLAB, Y1 + SLAB * 2, top + SLAB * 2], {
-    kind: 'rock',
+    kind: 'plaster',
     tint: CONCRETE,
   });
 
   for (let floor = 0; floor < FLOORS; floor++) {
     const z = b.floorZ(floor);
+    b.windowWall('x', X0 - SLAB, STAIR_X1, Y0 - SLAB, Y0, z, ROOM, [-660, -460], 96);
+    // Spandrel between the stairwell windows; no floor across the vertical void.
+    b.wall(X0 - SLAB, STAIR_X1, Y0 - SLAB, Y0, z + ROOM, SLAB, CONCRETE);
 
-    // Couloir : sol, plafond, et ses deux murs. Celui du sud est aveugle, avec
-    // les bouches de la gaine ; celui du nord porte les portes des deux
+    // Couloir : sol, plafond, et ses deux murs. Celui du sud est aveugle ;
+    // celui du nord porte les portes des deux
     // appartements.
-    b.slabWithHole(X0, X1, -HALL, HALL, z, SHAFT_HOLE, 'floor', CONCRETE);
+    b.slab(X0, X1, -HALL, HALL, z, 'tile', '#777365');
     b.pierced('x', X0, X1, -HALL - SLAB, -HALL, z, ROOM, [
       { at: STAIR_DOOR, width: DOOR_W, bottom: z, tall: DOOR_H },
     ]);
 
     // Deux appartements au nord, de part et d'autre d'un refend central.
-    apartment(b, X0, -64, z, -256, -448);
-    apartment(b, 64, X1, z, 256, 448);
+    apartment(b, X0, -64, z, -256);
+    apartment(b, 64, X1, z, 256);
     b.wall(-64, 64, HALL, Y1 + SLAB, z, ROOM, PLASTER);
 
     // Cage d'escalier au sud-ouest : ouverte sur toute la hauteur, donc ni sol
     // ni plafond ici. Une volee par etage, alternee, et un palier qui donne sur
     // le couloir.
-    b.stairFloor(z);
+    if (floor < FLOORS - 1) b.stairFloor(z);
+    else b.slab(STAIR_X0, STAIR_X1, -296, -HALL - SLAB, z);
+    decor.hall(floor, z);
+    decor.apartment(X0, -64, z, floor);
+    decor.apartment(64, X1, z, floor);
+    decor.stairs(z, floor === FLOORS - 1);
     // Fond de la cage, au niveau du rez : le reste de son emprise, en dehors
     // du palier que la volee a deja pose.
     if (floor === 0) b.slab(STAIR_X0, STAIR_X1, Y0, -296, 0, 'floor', CONCRETE);
     // Cloison entre la cage et la masse batie, sur toute la hauteur.
     if (floor === 0) {
       builder.block([STAIR_X1, Y0, -SLAB], [STAIR_X1 + SLAB, -HALL - SLAB, top], {
-        kind: 'rock',
+        kind: 'plaster',
         tint: CONCRETE,
       });
     }
@@ -530,54 +394,19 @@ export function buildBuilding(visual = true): Level {
     // Masse batie au sud du couloir : pleine, c'est elle qui donne au couloir
     // son mur aveugle.
     builder.block([STAIR_X1 + SLAB, Y0, z - SLAB], [X1, -HALL - SLAB, z + PITCH - SLAB], {
-      kind: 'rock',
+      kind: 'plaster',
       tint: CONCRETE,
     });
 
-    /*
-     * Reseau de ventilation. Il court sous le plafond du couloir, cote sud, a
-     * la vue de tous : un immeuble condamne a ses gaines apparentes, et cela
-     * evite d'avoir a creuser la maconnerie. Les militaires le voient donc, et
-     * cela ne leur sert a rien : ils ne peuvent pas y entrer.
-     */
-    const ductBottom = z + ROOM - VENT - 8;
-    const ductY = -HALL + VENT / 2 + 8;
-    const mouths = [-256, 96, 448];
-    const branches = [-448, 448];
-    b.ductX(X0, DUCT_EAST, ductY, ductBottom, [...mouths, ...branches]);
-    // Trois bouches sur le couloir : de quoi entendre sans savoir laquelle.
-    for (const at of mouths) b.ventMouth('y', at, ductY + VENT / 2, ductBottom);
-
-    // Antenne vers chaque appartement : elle traverse le mur du couloir a la
-    // meme hauteur et debouche au plafond du sejour.
-    for (const at of branches) {
-      b.ductY(at, ductY + VENT / 2, HALL + 128, ductBottom);
-      b.ventMouth('y', at, HALL + 120, ductBottom);
-    }
-
-    // Bouche sur la colonne verticale, a l'est.
-    b.ventMouth('x', ductY, DUCT_EAST, ductBottom);
   }
-
-  /*
-   * Colonne verticale a l'est du couloir : posee une fois pour toute la
-   * hauteur, percee au niveau de la gaine de chaque etage.
-   */
-  b.ductZ(
-    SHAFT_X,
-    SHAFT_Y,
-    -SLAB,
-    top,
-    Array.from({ length: FLOORS }, (_, floor) => b.floorZ(floor) + ROOM - VENT - 8 + VENT / 2),
-  );
 
   // Plafond du dernier etage : la seule dalle qui ne sert de plancher a
   // personne, donc la seule a poser en plus.
-  b.slabWithHole(X0, X1, Y0, Y1 + SLAB, top, SHAFT_HOLE, 'floor', PLASTER);
+  b.slab(X0, X1, Y0, Y1 + SLAB, top, 'plaster', PLASTER);
 
   // Entree au rez-de-chaussee, a l'ouest : c'est par la que l'unite penetre
   // dans le batiment, et par la qu'elle doit ressortir.
-  builder.block([X0 - SLAB, -HALL, -SLAB], [X0, HALL, ROOM], { kind: 'rock', tint: DOORWAY, solid: false });
+  builder.block([X0 - SLAB, -HALL, -SLAB], [X0, HALL, ROOM], { kind: 'plaster', tint: DOORWAY, solid: false });
   builder.block([X0, -HALL, -SLAB], [X0 + 24, HALL, -SLAB + 4], {
     kind: 'glow',
     emissive: '#1d6b3a',
@@ -600,6 +429,7 @@ export function buildBuilding(visual = true): Level {
    * Tout le reste vient des lampes des militaires et des projecteurs dehors.
    */
   const root = builder.build();
+  root.add(decor.signs);
   root.add(new THREE.AmbientLight(new THREE.Color('#0a0d12'), Math.PI * 0.35));
   root.add(
     new THREE.HemisphereLight(new THREE.Color('#12202e'), new THREE.Color('#05060a'), Math.PI * 0.18),
@@ -622,6 +452,10 @@ export function buildBuilding(visual = true): Level {
 
   const animated: Level['animated'] = [
     (time) => {
+      for (const { light, phase } of decor.lamps) {
+        const cycle = (time + phase) % 13;
+        light.intensity = cycle > 10 ? (Math.sin(time * 37 + phase) > 0.15 ? 65 : 3) : 90;
+      }
       for (const entry of searchlights) {
         const angle = entry.phase + time * entry.speed;
         entry.light.position.set(
@@ -648,24 +482,44 @@ export function buildBuilding(visual = true): Level {
     { origin: [X0 + 160, 48, 32], yaw: 0 },
     { origin: [X0 + 160, -48, 32], yaw: 0 },
     // Les demons attendent plus haut, un par etage.
-    { origin: [-400, 400, b.floorZ(1) + 32], yaw: -Math.PI / 2 },
-    { origin: [400, 400, b.floorZ(2) + 32], yaw: -Math.PI / 2 },
-    { origin: [-400, 400, b.floorZ(3) + 32], yaw: -Math.PI / 2 },
+    { origin: [-400, 300, b.floorZ(1) + 32], yaw: -Math.PI / 2 },
+    { origin: [400, 300, b.floorZ(2) + 32], yaw: -Math.PI / 2 },
+    { origin: [-400, 300, b.floorZ(3) + 32], yaw: -Math.PI / 2 },
     { origin: [400, 200, b.floorZ(3) + 32], yaw: Math.PI },
   ];
+
+  // Scale geometry and collision together; the player retains the engine's
+  // standing hull (56) and eye height above the floor (50).
+  root.scale.setScalar(BUILDING_SCALE);
+  root.traverse(object => {
+    if (object instanceof THREE.PointLight || object instanceof THREE.SpotLight) {
+      object.distance *= BUILDING_SCALE;
+      object.shadow.camera.near *= BUILDING_SCALE;
+      object.shadow.camera.far *= BUILDING_SCALE;
+      object.shadow.camera.updateProjectionMatrix();
+    }
+  });
+  root.updateMatrixWorld(true);
+  const scaledBrushes = builder.brushes.map(brush =>
+    boxBrush(buildingPoint(brush.mins), buildingPoint(brush.maxs), brush.contents));
+  const scaledSpawns = spawns.map(spawn => ({
+    ...spawn,
+    origin: [spawn.origin[0] * BUILDING_SCALE, spawn.origin[1] * BUILDING_SCALE,
+      (spawn.origin[2] - 32) * BUILDING_SCALE - PLAYER_MINS[2] + 0.125] as Vec3,
+  }));
 
   return {
     name: 'immeuble',
     root,
-    collision: new CollisionWorld(builder.brushes),
-    spawns,
+    collision: new CollisionWorld(scaledBrushes),
+    spawns: scaledSpawns,
     ambient: new THREE.Color('#080a0e'),
     skyColor: new THREE.Color('#05070c'),
     animated,
     // Sous le rez-de-chaussee, il n'y a rien : c'est une chute sans retour.
     floor: -512,
     darkness: true,
-    menuView: MENU_VIEW,
+    menuView: { ...MENU_VIEW, origin: [MENU_VIEW.origin[0] * BUILDING_SCALE, MENU_VIEW.origin[1] * BUILDING_SCALE, 50] },
   };
 }
 
@@ -673,7 +527,7 @@ export function buildBuilding(visual = true): Level {
  * Fond du menu : le couloir du rez-de-chaussee, pris de son extremite ouest.
  *
  * C'est le decor du jeu lui-meme derriere les entrees, et non une image : on
- * voit la gaine filer sous le plafond, le couloir s'enfoncer dans le noir, et
+ * voit le couloir s'enfoncer dans le noir, et
  * de temps en temps un projecteur passer au loin. Le menu n'a pas a connaitre
  * ces coordonnees, c'est le niveau qui les donne.
  */

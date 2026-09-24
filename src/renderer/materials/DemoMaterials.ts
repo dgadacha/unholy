@@ -51,6 +51,10 @@ export function surfaceMaterial(kind: SurfaceKind, options: SurfaceOptions = {})
 
 function defaultTint(kind: SurfaceKind): string {
   switch (kind) {
+    case 'plaster': return '#867c69';
+    case 'wood': return '#584333';
+    case 'fabric': return '#454b41';
+    case 'tile': return '#8b8779';
     case 'metal':
       return '#6a707a';
     case 'floor':
