@@ -8,7 +8,8 @@ import type { MenuAudio } from './MenuAudio';
  * Menu principal.
  *
  * La composition est celle de Quake III : le titre en haut, les entrees au
- * centre en capitales, le symbole derriere elles, une ligne discrete en bas.
+ * centre en capitales, une ligne discrete en bas, et le decor du jeu rendu
+ * derriere.
  * Ce qui change, c'est la finition : le decor est rendu en temps reel derriere
  * le menu, la navigation repond au clavier comme a la souris, et les pages
  * glissent l'une vers l'autre au lieu de se remplacer.
@@ -95,7 +96,6 @@ export class MainMenu {
   private readonly root: HTMLElement;
   private readonly stage: HTMLElement;
   private readonly selector: HTMLElement;
-  private readonly symbol: HTMLElement;
   private readonly notes: HTMLElement;
   private readonly pages = new Map<string, { element: HTMLElement; items: HTMLButtonElement[] }>();
   /** Lignes de reglage, pour les relire quand une valeur change. */
@@ -127,20 +127,6 @@ export class MainMenu {
     this.root = document.createElement('div');
     this.root.className = 'menu';
     this.root.innerHTML = `
-      <svg class="menu__symbol" viewBox="0 0 1000 620" aria-hidden="true">
-        <!--
-          Le symbole du jeu, redessine au trait : deux croissants ouverts en
-          haut et en bas, et les trois lames au centre. Il est presque noir,
-          et c'est voulu : il porte la composition sans prendre le regard.
-        -->
-        <path d="M 430 118 C 232 160 128 250 140 336 C 151 428 292 500 452 528
-                 C 304 480 174 414 166 336 C 158 262 246 176 430 118 Z" />
-        <path d="M 570 118 C 768 160 872 250 860 336 C 849 428 708 500 548 528
-                 C 696 480 826 414 834 336 C 842 262 754 176 570 118 Z" />
-        <path d="M 500 60 L 520 300 L 500 560 L 480 300 Z" />
-        <path d="M 396 150 L 424 330 L 404 520 L 378 330 Z" />
-        <path d="M 604 150 L 622 330 L 596 520 L 576 330 Z" />
-      </svg>
       <img class="menu__logo" src="/logo.png" alt="Unholy" />
       <div class="menu__stage">
         <div class="menu__selector"></div>
@@ -154,7 +140,6 @@ export class MainMenu {
 
     this.stage = this.root.querySelector('.menu__stage') as HTMLElement;
     this.selector = this.root.querySelector('.menu__selector') as HTMLElement;
-    this.symbol = this.root.querySelector('.menu__symbol') as HTMLElement;
     this.notes = this.root.querySelector('.menu__notes') as HTMLElement;
     (this.root.querySelector('.menu__footer span') as HTMLElement).insertAdjacentHTML(
       'afterend',
@@ -182,7 +167,7 @@ export class MainMenu {
   }
 
   /**
-   * Ouvre les reglages par-dessus la partie : ni titre ni symbole, et un
+   * Ouvre les reglages par-dessus la partie : sans titre, et avec un
    * assombrissement leger, pour qu'on voie encore ou l'on se trouve.
    */
   openSettings(): void {
@@ -511,9 +496,6 @@ export class MainMenu {
     }
     this.index = position;
     this.refresh();
-    // Le symbole marque le choix d'une impulsion, puis revient a l'ombre.
-    this.symbol.classList.add('menu__symbol--pulse');
-    window.setTimeout(() => this.symbol.classList.remove('menu__symbol--pulse'), 260);
 
     const entry = item.dataset.entry ?? '';
     if (entry === 'back') {

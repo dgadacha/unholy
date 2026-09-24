@@ -1,33 +1,33 @@
 /*
  * Menu principal.
  *
- * La composition est celle du jeu d'origine : noir, rouge, symbole. Le titre
- * en haut, les entrees au centre en capitales, le symbole derriere elles, et
- * une ligne discrete en bas. Ce qui est refait, c'est la finition : vraie
- * typographie, decor rendu en temps reel derriere le menu, transitions
- * courtes, et des tailles qui suivent l'ecran du 1080p au 4K.
+ * Noir et blanc, rien d'autre. Le logo en haut, les entrees au centre en
+ * capitales, une ligne discrete en bas, et derriere tout cela l'immeuble rendu
+ * en temps reel : c'est le decor qui porte la couleur, et il n'en a presque
+ * pas. Une teinte d'interface viendrait s'ajouter a la seule chose coloree de
+ * l'image, le faisceau de la lampe.
  *
- * Aucun cadre autour des entrees : le menu d'epoque tenait par sa
- * typographie, et c'est ce qui lui donne sa brutalite.
+ * Aucun cadre autour des entrees, aucun aplat : le menu tient par sa
+ * typographie, et c'est ce qui lui donne sa durete.
  */
 
 :root {
-  --qr-bg: #050505;
-  --qr-red-dark: #4a0505;
-  --qr-red: #c51010;
-  --qr-red-active: #ff251a;
-  --qr-red-idle: #8b1717;
-  --qr-ember: #ff5a18;
-  --qr-text: #e8e8e8;
-  --qr-text-muted: #777777;
-  --qr-transition-fast: 110ms;
-  --qr-transition-normal: 180ms;
+  --menu-bg: #050505;
+  /* Une entree au repos, celle qu'on survole, et le trait des titres. */
+  --menu-idle: #8b8f95;
+  --menu-active: #ffffff;
+  --menu-line: #c8ccd2;
+  --menu-deep: #2a2d31;
+  --menu-text: #e8e8e8;
+  --menu-text-muted: #777777;
+  --menu-transition-fast: 110ms;
+  --menu-transition-normal: 180ms;
   /*
    * Police du menu : capitales condensees et angulaires. Les familles sont
    * cherchees dans l'ordre sur la machine, et la derniere est la graisse la
    * plus lourde du systeme, ce qui garde des lettres nettes en 4K.
    */
-  --qr-font-display: 'Oswald', 'Archivo Narrow', 'Roboto Condensed',
+  --menu-font-display: 'Oswald', 'Archivo Narrow', 'Roboto Condensed',
     'Helvetica Neue Condensed', 'Arial Narrow', 'Impact', system-ui, sans-serif;
 }
 
@@ -39,7 +39,7 @@
   align-items: center;
   /* Zone de securite : l'essentiel reste proche du centre, meme en tres large. */
   padding: clamp(24px, 6vh, 72px) clamp(24px, 8vw, 160px);
-  font-family: var(--qr-font-display);
+  font-family: var(--menu-font-display);
   /*
    * Le decor est rendu derriere : pas de fond opaque, seulement un
    * assombrissement vers les bords pour garder les lettres lisibles.
@@ -49,7 +49,7 @@
     radial-gradient(ellipse at 50% 45%, rgba(5, 5, 5, 0.3) 0%, rgba(3, 3, 4, 0.88) 76%),
     linear-gradient(180deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.08) 28%, rgba(0, 0, 0, 0.8) 100%);
   opacity: 0;
-  transition: opacity var(--qr-transition-normal) ease;
+  transition: opacity var(--menu-transition-normal) ease;
   pointer-events: auto;
 }
 
@@ -70,35 +70,15 @@
 @keyframes title-breathe {
   0%,
   100% {
-    filter: drop-shadow(0 0 22px rgba(197, 16, 16, 0.22)) brightness(0.9);
+    filter: drop-shadow(0 0 22px rgba(255, 255, 255, 0.16)) brightness(0.9);
   }
   50% {
-    filter: drop-shadow(0 0 30px rgba(197, 16, 16, 0.34)) brightness(1);
+    filter: drop-shadow(0 0 30px rgba(255, 255, 255, 0.26)) brightness(1);
   }
 }
 
 :root[data-reduced-motion='true'] .menu__logo {
   animation: none;
-}
-
-/* Symbole : gigantesque, presque noyé dans l'obscurite, derriere les entrees. */
-.menu__symbol {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: min(1000px, 78vw);
-  transform: translate(-50%, -44%);
-  opacity: 0.18;
-  pointer-events: none;
-  transition: opacity 320ms ease;
-}
-
-.menu__symbol path {
-  fill: var(--qr-red-dark);
-}
-
-.menu__symbol--pulse {
-  opacity: 0.28;
 }
 
 .menu__stage {
@@ -117,7 +97,7 @@
   flex-direction: column;
   align-items: center;
   gap: clamp(6px, 0.9vh, 14px);
-  transition: opacity var(--qr-transition-normal) ease, transform var(--qr-transition-normal) ease;
+  transition: opacity var(--menu-transition-normal) ease, transform var(--menu-transition-normal) ease;
 }
 
 .menu-screen--active {
@@ -146,10 +126,10 @@
   font-weight: 600;
   letter-spacing: 0.4em;
   text-transform: uppercase;
-  color: var(--qr-red);
+  color: var(--menu-line);
 }
 
-/* Entree : rien qu'un mot, et le rouge qui dit s'il est choisi. */
+/* Entree : rien qu'un mot, et le blanc qui dit s'il est choisi. */
 .menu-item {
   position: relative;
   appearance: none;
@@ -162,31 +142,31 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: 2px clamp(28px, 3vw, 54px);
-  color: var(--qr-red-idle);
+  color: var(--menu-idle);
   opacity: 0.7;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 2px 10px rgba(0, 0, 0, 0.85);
   transition:
-    color var(--qr-transition-fast) ease,
-    opacity var(--qr-transition-fast) ease,
-    transform var(--qr-transition-fast) ease;
+    color var(--menu-transition-fast) ease,
+    opacity var(--menu-transition-fast) ease,
+    transform var(--menu-transition-fast) ease;
 }
 
 .menu-item--active {
-  color: var(--qr-red-active);
+  color: var(--menu-active);
   opacity: 1;
   transform: scale(1.05);
-  text-shadow: 0 0 18px rgba(255, 37, 26, 0.45), 0 2px 6px rgba(0, 0, 0, 0.9);
+  text-shadow: 0 0 18px rgba(255, 255, 255, 0.28), 0 2px 6px rgba(0, 0, 0, 0.9);
 }
 
 .menu-item--minor {
   font-size: clamp(13px, 1vw, 17px);
   letter-spacing: 0.24em;
   margin-top: clamp(8px, 1.6vh, 20px);
-  color: #6f1212;
+  color: #5d636b;
 }
 
 .menu-item--minor.menu-item--active {
-  color: var(--qr-red);
+  color: var(--menu-line);
 }
 
 .menu-item:disabled {
@@ -201,7 +181,7 @@
   font-size: clamp(9px, 0.7vw, 12px);
   font-weight: 500;
   letter-spacing: 0.28em;
-  color: var(--qr-text-muted);
+  color: var(--menu-text-muted);
 }
 
 /*
@@ -213,15 +193,15 @@
   left: 0;
   width: clamp(10px, 0.9vw, 16px);
   height: clamp(10px, 0.9vw, 16px);
-  background: linear-gradient(180deg, var(--qr-ember), var(--qr-red));
+  background: linear-gradient(180deg, var(--menu-line), var(--menu-line));
   clip-path: polygon(0 0, 100% 50%, 0 100%, 26% 50%);
   opacity: 0;
   transition:
-    top var(--qr-transition-fast) ease,
-    left var(--qr-transition-fast) ease,
-    opacity var(--qr-transition-fast) ease;
+    top var(--menu-transition-fast) ease,
+    left var(--menu-transition-fast) ease,
+    opacity var(--menu-transition-fast) ease;
   pointer-events: none;
-  filter: drop-shadow(0 0 8px rgba(255, 90, 24, 0.5));
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.35));
 }
 
 .menu__selector--visible {
@@ -238,7 +218,7 @@
   font-size: clamp(30px, 3.2vw, 58px);
   font-weight: 700;
   letter-spacing: 0.1em;
-  color: var(--qr-text);
+  color: var(--menu-text);
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
 }
 
@@ -247,14 +227,14 @@
   font-size: clamp(11px, 1vw, 15px);
   letter-spacing: 0.34em;
   text-transform: uppercase;
-  color: var(--qr-red);
+  color: var(--menu-line);
 }
 
 .menu-card__line {
   margin-top: 10px;
   font-size: clamp(10px, 0.8vw, 13px);
   letter-spacing: 0.2em;
-  color: var(--qr-text-muted);
+  color: var(--menu-text-muted);
 }
 
 /* Credits : quelques lignes, la meme langue visuelle. */
@@ -265,11 +245,11 @@
   font-size: clamp(12px, 1vw, 15px);
   line-height: 1.8;
   letter-spacing: 0.04em;
-  color: var(--qr-text-muted);
+  color: var(--menu-text-muted);
 }
 
 .menu-text b {
-  color: var(--qr-text);
+  color: var(--menu-text);
   font-weight: 600;
 }
 
@@ -284,12 +264,12 @@
   font-size: clamp(11px, 0.75vw, 13px);
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--qr-text-muted);
+  color: var(--menu-text-muted);
   opacity: 0.45;
 }
 
 .menu__footer b {
-  color: var(--qr-red);
+  color: var(--menu-line);
   font-weight: 600;
 }
 
@@ -305,13 +285,13 @@
   font: inherit;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--qr-text-muted);
+  color: var(--menu-text-muted);
   cursor: pointer;
 }
 
 .menu__source--active,
 .menu__source:hover {
-  color: var(--qr-red-active);
+  color: var(--menu-active);
 }
 
 .menu__notes {
@@ -326,7 +306,7 @@
 }
 
 .menu__notes--error {
-  color: var(--qr-red-active);
+  color: var(--menu-active);
   opacity: 0.9;
 }
 
@@ -362,9 +342,9 @@
 }
 
 .menu-setting.menu-item--active {
-  color: var(--qr-text);
+  color: var(--menu-text);
   transform: none;
-  background: linear-gradient(90deg, rgba(197, 16, 16, 0) 0%, rgba(197, 16, 16, 0.12) 50%, rgba(197, 16, 16, 0) 100%);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0) 100%);
 }
 
 .menu-setting__label {
@@ -375,15 +355,15 @@
 .menu-setting__value {
   text-align: left;
   font-weight: 700;
-  color: #e0521f;
+  color: var(--menu-line);
 }
 
 .menu-setting.menu-item--active .menu-setting__value {
-  color: var(--qr-red-active);
+  color: var(--menu-active);
 }
 
 /*
- * Jauge d'une valeur continue : un rail sombre et un remplissage rouge, au
+ * Jauge d'une valeur continue : un rail sombre et un remplissage clair, au
  * trait, sans poignee ronde. Elle n'apparait que pour les reglages qui en ont
  * une, et garde sa place dans les autres lignes pour que la colonne tienne.
  */
@@ -400,19 +380,15 @@
 .menu-setting__bar span {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--qr-red-dark), var(--qr-red-active));
-  transition: width var(--qr-transition-fast) ease;
+  background: linear-gradient(90deg, var(--menu-deep), var(--menu-active));
+  transition: width var(--menu-transition-fast) ease;
 }
 
 /*
- * Reglages ouverts en pleine partie : le titre et le symbole s'effacent, et
- * l'assombrissement reste leger pour qu'on voie ou l'on se trouve.
+ * Reglages ouverts en pleine partie : le titre s'efface, et l'assombrissement
+ * reste leger pour qu'on voie ou l'on se trouve.
  */
 .menu--overlay .menu__logo,
-.menu--overlay .menu__symbol {
-  display: none;
-}
-
 .menu--overlay {
   background:
     radial-gradient(ellipse 50% 40% at 50% 50%, rgba(3, 3, 4, 0.82) 0%, rgba(3, 3, 4, 0.5) 100%),
