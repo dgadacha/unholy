@@ -26,24 +26,32 @@ import type { WeaponRig } from './WeaponRig';
  * a droite et en bas du regard.
  */
 /*
- * Valeurs reglees a la mesure, avec `__unholy.rifle()` : la silhouette de
- * l'arme est projetee a l'ecran et l'on regarde ou elle tombe. A celles-ci,
- * elle occupe vingt-trois pour cent de la largeur et trente-trois de la
- * hauteur, dans le quart bas-droit, canon vers le viseur. L'ouverture compte
- * plus que tout : a sept degres on ne voyait que le bout du canon, l'arme etant
- * vue dans son axe.
+ * Valeurs reglees a la mesure ET en regardant l'image, avec
+ * `__unholy.rifle()` : la silhouette de l'arme est projetee a l'ecran, et une
+ * capture dit ce que les chiffres ne disent pas.
+ *
+ * Ce qu'il fallait obtenir : l'arme entre par le bord droit, la crosse coupee
+ * par le coin, la carcasse et le viseur entiers, le canon vers le viseur. Donc
+ * une silhouette qui va de 0,55 a 1,00 en largeur et de 0,57 a 1,00 en hauteur.
+ * Une arme qui s'arrete avant les bords flotte : c'est le decoupage par le coin
+ * qui la fait tenir dans une main qu'on ne voit pas.
+ *
+ * Le signe de l'ouverture est ce qui a demande le plus d'essais. Vers
+ * l'exterieur, le canon part a droite de l'ecran et l'arme se lit a l'envers ;
+ * c'est vers l'interieur qu'elle converge vers le viseur, comme une arme tenue
+ * a l'epaule.
  */
 export const RIFLE_HOLD = {
   /** Longueur de l'arme dans le monde, en unites de carte. */
   length: 20,
   /** Distance devant l'oeil du centre de l'arme. */
-  forward: 16,
+  forward: 18,
   /** Decalage a droite, et vers le bas. */
-  right: 6,
-  down: 5.5,
+  right: 8,
+  down: 7.5,
   /** Ouverture vers l'interieur, en degres, et inclinaison. */
-  yaw: -34,
-  roll: 3,
+  yaw: 24,
+  roll: 5,
 };
 
 /** Recul d'un coup : retrait le long du canon, en fraction de la longueur. */
