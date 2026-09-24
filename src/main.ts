@@ -260,7 +260,6 @@ async function mountSource(name: string): Promise<void> {
   await yieldToBrowser();
 
   await timed('scripts', () => loadShaderScripts());
-  await timed('listes', async () => refreshMaps());
   const fileCount = await timed('comptage', async () => vfs.fileCount);
   mountTimings.acces = HttpRangeSource.reads;
   mountTimings.total = Math.round(performance.now() - mountStart);
@@ -270,13 +269,15 @@ async function mountSource(name: string): Promise<void> {
     activeSource,
   );
   sourceSummary = `${vfs.mounted.length} archives · ${shaders.count} shaders · ${fileCount} files`;
-  menu.setNotes(sourceSummary);
+  // Le releve n'existe qu'ici : la page des outils est mise a jour apres, pas
+  // pendant la lecture des listes.
+  refreshMaps();
+  menu.setNotes('');
   // Les sons du menu sont ceux du jeu : ils arrivent avec les archives.
   void menuAudio.load((path) => vfs.read(path)).then(() => {
     applyVolume();
     if (menu.isVisible) menuAudio.startAmbience();
   });
-  showMenu();
 }
 
 async function loadShaderScripts(): Promise<void> {
@@ -322,11 +323,14 @@ function refreshMaps(): void {
       name: path.replace(/^maps\//, '').replace(/\.bsp$/, ''),
       source: activeSource || 'fichiers deposes',
     }))
-    // La demonstration ne porte que sur une carte : le reste du catalogue
-    // n'est pas propose, pour ne pas laisser croire qu'il est traite.
+    // Une seule carte de Quake III est traitee : le reste du catalogue n'est
+    // pas propose, pour ne pas laisser croire qu'il l'est.
     .filter((entry) => isFocusMap(entry.name));
-  menu.setMap(entries[0]?.name ?? null);
   currentMap = entries[0] ?? currentMap;
+  menu.setEngineData(
+    entries.length > 0 ? `${sourceSummary} · ${entries[0].name} available` : sourceSummary || 'no archive mounted',
+    entries.length > 0,
+  );
 }
 
 /**
@@ -391,6 +395,8 @@ async function playMap(entry: MapEntry, silent = false): Promise<void> {
  */
 function playBuilding(): void {
   currentMap = null;
+  // Les reglages de l'operation valent aussi quand on entre par l'adresse.
+  session.setRules(menu.rules);
   session.leaveMenuView();
   menu.hide();
   menuAudio.stopAmbience();
@@ -461,7 +467,9 @@ menu.onSelect = (page, entry) => {
     session.setRules(menu.rules);
     playBuilding();
   }
+  // Outils du moteur : ils demandent les donnees de Quake III, sauf l'arene.
   else if (entry === 'benchmark') void startBenchmark();
+  else if (entry === 'bsp') void playFocusMap();
   else if (entry === 'arena') playDemo();
 };
 
@@ -692,47 +700,43 @@ window.addEventListener('drop', async (event) => {
 });
 
 async function boot(): Promise<void> {
+  /*
+   * Le decor du menu est l'immeuble lui-meme. Il est fabrique par le code et
+   * ne demande aucun fichier : le menu s'affiche donc sur le jeu des la
+   * premiere image, sans rien attendre. Entrer en partie n'a plus rien a
+   * charger non plus.
+   */
+  session.setLevel(buildBuilding());
+  session.start();
+  showMenu();
+
+  if (params.has('play')) {
+    playBuilding();
+    return;
+  }
+
+  /*
+   * Les donnees de Quake III sont montees ensuite, en arriere-plan : le moteur
+   * sait les lire, les outils de mise au point s'en servent, et les corps des
+   * adversaires en viennent encore. Rien de tout cela ne retarde le menu.
+   */
   manifest = await readManifest();
   const names = manifest.mods.map((mod) => mod.name);
-  // Le dossier de base du jeu passe en premier quand il est la : c'est lui
-  // qui sera monte, et c'est donc lui que le menu doit montrer comme actif.
   const preferred = params.get('source') ?? (names.includes('baseq3') ? 'baseq3' : names[0]);
   menu.setSources(names, preferred);
-  // Le menu est la des la premiere image, sur fond noir : le decor ne le
-  // rejoint qu'une fois la carte montee.
-  menu.show();
-  menu.setMap(null);
-
   if (names.length === 0) {
-    menu.setNotes(
-      'No archive detected. Put your .pk3 files in public/data, run node tools/scan-data.mjs, or drop them on this page. The test arena works without game data.',
-    );
+    menu.setEngineData('no archive detected in public/data', false);
     return;
   }
 
   await mountSource(preferred);
+  menu.setNotes('');
 
-  /*
-   * Le menu s'affiche d'abord : lancer la demonstration, la mesurer ou regler
-   * le rendu sont trois entrees, et rien ne demarre sans qu'on le demande.
-   * Les outils de mise au point, eux, passent par l'adresse et veulent la
-   * carte tout de suite.
-   */
-  const entry = focusEntry();
-  if (!vfs.has(entry.path)) return;
-  currentMap = entry;
-  if (params.has('shot') || params.has('map') || params.has('play')) {
-    await playMap(entry);
-    return;
+  // Les outils de mise au point, eux, veulent la carte tout de suite.
+  if (params.has('shot') || params.has('map')) {
+    const entry = focusEntry();
+    if (vfs.has(entry.path)) await playMap(entry);
   }
-
-  /*
-   * La carte est montee sans entrer en partie : elle sert de decor au menu, et
-   * l'entree en jeu est ensuite immediate.
-   */
-  await playMap(entry, true);
-  menu.setNotes(sourceSummary);
-  showMenu();
 }
 
 void boot();

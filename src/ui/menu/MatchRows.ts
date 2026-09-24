@@ -1,12 +1,13 @@
 import { SKILL_NAMES, type BotSkill } from '../../game/bots/BotBrain';
 
 /**
- * Reglages de la partie, ceux que l'ecran de preparation du jeu propose :
- * le mode, le nombre d'adversaires, leur niveau, la limite de frags et la
- * limite de temps.
+ * Reglages de l'operation, ceux que l'ecran de preparation propose.
  *
- * Le mode est nomme comme dans le jeu, Free For All, et non deathmatch : c'est
- * le libelle que Quake III affiche pour la partie individuelle.
+ * Le format du jeu n'est pas un reglage : quatre militaires, quatre demons,
+ * une seule vie. Il est donc annonce par la fiche de l'operation, et les lignes
+ * ne gardent que ce qui se regle vraiment aujourd'hui, le nombre
+ * d'adversaires, leur niveau et la duree. Une ligne qui ne fait rien n'a pas sa
+ * place ici.
  */
 
 export interface MatchRules {
@@ -18,8 +19,17 @@ export interface MatchRules {
   timeLimit: number;
 }
 
+/*
+ * Aucun adversaire par defaut, pour l'instant.
+ *
+ * Les combattants de l'arene heritee tirent dans le noir sans avoir de corps :
+ * ils n'ont ni les modeles des demons, qui n'existent pas encore, ni leur
+ * facon de se deplacer. Entrer dans l'immeuble pour y etre abattu par un
+ * fusil invisible n'apprend rien. La ligne reste reglable : c'est ainsi qu'on
+ * les remet pour essayer le combat.
+ */
 export const DEFAULT_MATCH: MatchRules = {
-  bots: 7,
+  bots: 0,
   skill: 3,
   fragLimit: 20,
   timeLimit: 600,
@@ -32,7 +42,6 @@ export interface MatchRow {
   step: (direction: number, rules: MatchRules) => void;
 }
 
-const FRAG_LIMITS = [0, 5, 10, 15, 20, 25, 30, 50];
 const TIME_LIMITS = [0, 300, 600, 900, 1200, 1800];
 
 function cycle(values: number[], current: number, direction: number): number {
@@ -42,14 +51,6 @@ function cycle(values: number[], current: number, direction: number): number {
 }
 
 export const MATCH_ROWS: MatchRow[] = [
-  {
-    id: 'mode',
-    label: 'Mode',
-    // Un seul mode dans cette demonstration : la ligne le dit, sans mentir
-    // sur ce qui existe.
-    read: () => ({ text: 'free for all' }),
-    step: () => {},
-  },
   {
     id: 'bots',
     label: 'Opponents',
@@ -65,14 +66,6 @@ export const MATCH_ROWS: MatchRow[] = [
     step: (direction, rules) => {
       const next = Math.max(1, Math.min(5, rules.skill + direction));
       rules.skill = next as BotSkill;
-    },
-  },
-  {
-    id: 'fragLimit',
-    label: 'Frag limit',
-    read: (rules) => ({ text: rules.fragLimit > 0 ? String(rules.fragLimit) : 'none' }),
-    step: (direction, rules) => {
-      rules.fragLimit = cycle(FRAG_LIMITS, rules.fragLimit, direction);
     },
   },
   {

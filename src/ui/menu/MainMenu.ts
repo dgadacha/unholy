@@ -38,25 +38,42 @@ interface MenuPage {
   entries: MenuEntry[];
 }
 
-/** Pages du menu de la demonstration. Aucune entree morte : tout repond. */
+/**
+ * Pages du menu. Aucune entree morte : tout repond.
+ *
+ * Le jeu ne propose qu'un decor et qu'une operation : il n'y a donc ni choix de
+ * carte, ni liste de dossiers de donnees. Ce qui reste du moteur d'origine,
+ * banc de mesure et lecture des cartes de Quake III, est un outil et vit sur sa
+ * propre page.
+ */
 const PAGES: MenuPage[] = [
   {
     id: 'main',
     entries: [
-      { id: 'single', label: 'Single player' },
-      { id: 'benchmark', label: 'Benchmark' },
+      { id: 'single', label: 'Operation' },
       { id: 'settings', label: 'Settings' },
       { id: 'credits', label: 'Credits' },
-      { id: 'arena', label: 'Test arena', minor: true },
+      { id: 'tools', label: 'Engine tools', minor: true },
     ],
   },
   {
     id: 'single',
-    title: 'Single player',
+    title: 'Operation',
     header: 'card',
     match: true,
     entries: [
-      { id: 'start', label: 'Fight' },
+      { id: 'start', label: 'Enter the building' },
+      { id: 'back', label: 'Back', minor: true },
+    ],
+  },
+  {
+    id: 'tools',
+    title: 'Engine tools',
+    header: 'tools',
+    entries: [
+      { id: 'benchmark', label: 'Benchmark', note: 'needs a Quake III map' },
+      { id: 'bsp', label: 'Load the Quake III map', note: 'rendering comparisons' },
+      { id: 'arena', label: 'Test arena', note: 'no data needed' },
       { id: 'back', label: 'Back', minor: true },
     ],
   },
@@ -80,7 +97,6 @@ export class MainMenu {
   private readonly selector: HTMLElement;
   private readonly symbol: HTMLElement;
   private readonly notes: HTMLElement;
-  private readonly sources: HTMLElement;
   private readonly pages = new Map<string, { element: HTMLElement; items: HTMLButtonElement[] }>();
   /** Lignes de reglage, pour les relire quand une valeur change. */
   private readonly rows = new Map<HTMLButtonElement, SettingRow>();
@@ -125,14 +141,13 @@ export class MainMenu {
         <path d="M 396 150 L 424 330 L 404 520 L 378 330 Z" />
         <path d="M 604 150 L 622 330 L 596 520 L 576 330 Z" />
       </svg>
-      <h1 class="menu__title">Unholy</h1>
+      <img class="menu__logo" src="/logo.png" alt="Unholy" />
       <div class="menu__stage">
         <div class="menu__selector"></div>
       </div>
       <div class="menu__footer">
         <span><b>Unholy</b> &middot; work in progress</span>
         <span class="menu__notes"></span>
-        <span class="menu__sources"></span>
       </div>
     `;
     parent.appendChild(this.root);
@@ -141,7 +156,6 @@ export class MainMenu {
     this.selector = this.root.querySelector('.menu__selector') as HTMLElement;
     this.symbol = this.root.querySelector('.menu__symbol') as HTMLElement;
     this.notes = this.root.querySelector('.menu__notes') as HTMLElement;
-    this.sources = this.root.querySelector('.menu__sources') as HTMLElement;
     (this.root.querySelector('.menu__footer span') as HTMLElement).insertAdjacentHTML(
       'afterend',
       `<span class="menu__build">build ${build}</span>`,
@@ -187,16 +201,20 @@ export class MainMenu {
     this.selector.classList.remove('menu__selector--visible');
   }
 
-  /** Nom de la carte jouable, affiche sur la page de partie. */
-  setMap(name: string | null): void {
-    const card = this.root.querySelector('.menu-card__map') as HTMLElement | null;
-    if (card) card.textContent = name ?? 'no map';
-    const start = this.pages.get('single')?.items.find((item) => item.dataset.entry === 'start');
-    if (start) start.disabled = name === null;
-    const single = this.pages.get('main')?.items.find((item) => item.dataset.entry === 'single');
-    if (single) single.disabled = name === null;
-    const bench = this.pages.get('main')?.items.find((item) => item.dataset.entry === 'benchmark');
-    if (bench) bench.disabled = name === null;
+  /**
+   * Etat des donnees de Quake III : ce qu'on en a monte, et ce que cela ouvre.
+   *
+   * Le jeu n'en depend pas, son decor etant fabrique par le code : seules les
+   * entrees de la page des outils s'allument ou s'eteignent avec elles.
+   */
+  setEngineData(summary: string, mapAvailable: boolean): void {
+    const line = this.root.querySelector('.menu-data') as HTMLElement | null;
+    if (line) line.textContent = summary;
+    const tools = this.pages.get('tools');
+    for (const id of ['benchmark', 'bsp']) {
+      const item = tools?.items.find((entry) => entry.dataset.entry === id);
+      if (item) item.disabled = !mapAvailable;
+    }
   }
 
   setNotes(text: string, isError = false): void {
@@ -204,9 +222,14 @@ export class MainMenu {
     this.notes.classList.toggle('menu__notes--error', isError);
   }
 
-  /** Dossiers de donnees montes : un seul a la fois, comme dans le jeu. */
+  /**
+   * Dossiers de donnees montes, sur la page des outils : un seul a la fois.
+   * Cela ne concerne plus le jeu, dont le decor ne vient d'aucun fichier.
+   */
   setSources(names: string[], active: string): void {
-    this.sources.innerHTML = '';
+    const box = this.root.querySelector('.menu__sources') as HTMLElement | null;
+    if (!box) return;
+    box.innerHTML = '';
     for (const name of names) {
       const button = document.createElement('button');
       button.className = name === active ? 'menu__source menu__source--active' : 'menu__source';
@@ -214,7 +237,7 @@ export class MainMenu {
       button.addEventListener('click', () => {
         if (name !== active) this.onSource?.(name);
       });
-      this.sources.appendChild(button);
+      box.appendChild(button);
     }
   }
 
@@ -245,21 +268,47 @@ export class MainMenu {
       const card = document.createElement('div');
       card.className = 'menu-card';
       card.innerHTML = `
-        <div class="menu-card__map">q3dm7</div>
-        <div class="menu-card__title">The temple of retribution</div>
-        <div class="menu-card__line">free for all &middot; the arena of 1999, opponents included</div>
+        <div class="menu-card__map">The building</div>
+        <div class="menu-card__title">Four floors, no power</div>
+        <div class="menu-card__line">
+          four soldiers &middot; four demons &middot; one life each
+        </div>
+        <div class="menu-card__line menu-card__line--soon">
+          in this build: the building and the dark. The demons, the two teams and
+          the one-life rule come next.
+        </div>
       `;
       element.appendChild(card);
+    }
+    if (page.header === 'tools') {
+      const box = document.createElement('div');
+      box.className = 'menu-card';
+      box.innerHTML = `
+        <div class="menu-card__title">Reading Quake III data</div>
+        <div class="menu-card__line">
+          The engine still reads <b>.pk3</b> archives: it is how this renderer was
+          built, and how the opponents get their bodies until they have their own.
+          The game itself needs none of it.
+        </div>
+        <div class="menu-card__line menu-data"></div>
+      `;
+      element.appendChild(box);
+      const sources = document.createElement('div');
+      sources.className = 'menu__sources';
+      box.appendChild(sources);
     }
     if (page.header === 'credits') {
       const text = document.createElement('p');
       text.className = 'menu-text';
       text.innerHTML = `
-<b>Quake III Arena</b> is the work of id Software, 1999. Its maps,
-        textures, models and sounds are read from your own installation and
-        never leave your machine.<br />
-        Everything else here — the engine, the renderer, the material
-        pipeline — is written from scratch.
+        <b>Unholy</b> — an asymmetric horror shooter. Four soldiers enter a
+        condemned apartment block at night; four demons are already inside. The
+        soldiers own the firing lines, the demons own the walls, the ceilings and
+        the ducts.<br />
+        The engine, the renderer and the material chain are written from
+        scratch, in TypeScript on top of Three.js. They grew out of a study of
+        <b>Quake III Arena</b>, id Software, 1999, whose archives the engine can
+        still read: that data stays on your machine and never leaves it.
       `;
       element.appendChild(text);
     }
@@ -478,7 +527,8 @@ export class MainMenu {
       this.adjust(1, item);
       return;
     }
-    if (this.page === 'main' && (entry === 'single' || entry === 'credits' || entry === 'settings')) {
+    // Les entrees du menu principal qui portent le nom d'une page y menent.
+    if (this.page === 'main' && this.pages.has(entry)) {
       this.showPage(entry);
       return;
     }

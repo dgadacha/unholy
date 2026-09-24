@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Contents } from '../../formats/bsp';
+import { Contents, type Vec3 } from '../../formats/bsp';
 import { CollisionWorld } from '../collision';
 import { BlockBuilder } from '../build/BlockBuilder';
 import type { Level, SpawnPoint } from '../level';
@@ -665,8 +665,23 @@ export function buildBuilding(visual = true): Level {
     // Sous le rez-de-chaussee, il n'y a rien : c'est une chute sans retour.
     floor: -512,
     darkness: true,
+    menuView: MENU_VIEW,
   };
 }
+
+/**
+ * Fond du menu : le couloir du rez-de-chaussee, pris de son extremite ouest.
+ *
+ * C'est le decor du jeu lui-meme derriere les entrees, et non une image : on
+ * voit la gaine filer sous le plafond, le couloir s'enfoncer dans le noir, et
+ * de temps en temps un projecteur passer au loin. Le menu n'a pas a connaitre
+ * ces coordonnees, c'est le niveau qui les donne.
+ */
+const MENU_VIEW = {
+  origin: [-690, 24, 44] as Vec3,
+  yaw: (6 * Math.PI) / 180,
+  pitch: (3 * Math.PI) / 180,
+};
 
 /** Projecteur exterieur : cone large, ombre portee, pas de decroissance douce. */
 function spotlight(color: string, intensity: number): THREE.SpotLight {

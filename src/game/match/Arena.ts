@@ -68,7 +68,12 @@ export interface ArenaRules {
 export const DEFAULT_RULES: ArenaRules = {
   fragLimit: 20,
   timeLimit: 600,
-  bots: 7,
+  /*
+   * Aucun adversaire pour l'instant : ceux de cette arene tirent dans le noir
+   * sans corps ni deplacement de demon. La ligne du menu les remet des qu'on
+   * veut essayer le combat.
+   */
+  bots: 0,
   skill: 3,
 };
 

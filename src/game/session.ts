@@ -680,8 +680,10 @@ export class Session {
    * presque immobile, et l'image est ramenee a une ambiance tres sombre : le
    * menu doit se lire par-dessus sans que le decor lui dispute l'attention.
    */
-  enterMenuView(view = FOCUS_MENU_VIEW): void {
+  enterMenuView(requested?: { origin: Vec3; yaw: number; pitch: number }): void {
     if (!this.level || this.menuView) return;
+    // Le niveau decide d'abord : c'est lui qui sait ou il se montre le mieux.
+    const view = requested ?? this.level.menuView ?? FOCUS_MENU_VIEW;
     const grade = this.grade;
     this.menuView = { grade, drift: 0, view };
     this.setPaused(true);

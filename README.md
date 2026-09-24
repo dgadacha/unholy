@@ -91,10 +91,17 @@ ln -s "/path/to/Quake III Arena/baseq3" public/data/baseq3
 npm run dev
 ```
 
-The server listens on port 5214. **F** switches the rifle light off, which is a
-tactical choice rather than a setting. URL parameters: `?play` starts the level
-immediately, `?map=<name>` picks another one, `?mute` silences the sound,
-`?source=<folder>` chooses which data folder to mount.
+The menu opens on the building itself — the backdrop is the game, not an image —
+and entering it loads nothing. The server listens on port 5214. **F** switches
+the rifle light off, which is a tactical choice rather than a setting. URL
+parameters: `?play` enters the building
+immediately, `?mute` silences the sound, `?map=<name>` loads a Quake III map
+instead, and `?source=<folder>` chooses which data folder to mount.
+
+The Quake III archives are mounted in the background, after the menu is up, and
+nothing in the game waits for them: they serve the engine tools, and the
+opponents' bodies until they have their own. **Engine tools** in the menu is
+where the benchmark, that map and the test arena live.
 
 ---
 

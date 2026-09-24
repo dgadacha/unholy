@@ -54,6 +54,12 @@ export interface Level {
    */
   darkness?: boolean;
   /**
+   * Point de vue du fond de menu : le decor rendu derriere les entrees. Chaque
+   * niveau sait ou il se montre le mieux, et le menu n'a donc pas a connaitre
+   * de coordonnees.
+   */
+  menuView?: { origin: Vec3; yaw: number; pitch: number };
+  /**
    * Brouillard declare par la carte a cet endroit, ou rien. Le brouillard n'est
    * jamais ajoute d'office : seules les cartes qui en declarent en ont.
    */

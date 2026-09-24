@@ -59,15 +59,11 @@
 }
 
 /* Titre : le logo porte le nom, tres present sans manger l'ecran. */
-.menu__title {
+.menu__logo {
+  width: clamp(360px, 46vw, 820px);
+  max-width: 88vw;
   margin-top: clamp(8px, 4vh, 48px);
-  font-size: clamp(56px, 11vw, 168px);
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--ui-accent);
-  text-shadow: 0 0 32px rgba(0, 0, 0, 0.9);
-  /* Presence discrete : le titre respire sur cinq secondes, sans clignoter. */
+  /* Presence discrete : le logo respire sur cinq secondes, sans clignoter. */
   animation: title-breathe 5.5s ease-in-out infinite;
 }
 
@@ -81,7 +77,7 @@
   }
 }
 
-:root[data-reduced-motion='true'] .menu__title {
+:root[data-reduced-motion='true'] .menu__logo {
   animation: none;
 }
 
