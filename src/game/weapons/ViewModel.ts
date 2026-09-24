@@ -215,6 +215,35 @@ export class ViewModel {
     this.fillLight.intensity = clamp(0.5 + ambient * 1.2, 0.5, 1.5);
   }
 
+  /**
+   * Eclairage de l'arme dans un decor sans eclairage general.
+   *
+   * Les planchers d'intensite de la methode precedente viennent des cartes du
+   * moteur d'origine, qui sont toutes eclairees : ils gardent une arme lisible
+   * dans une salle sombre. Ici ils sont faux. Dans un immeuble sans courant, la
+   * seule lumiere qui touche l'arme est celle de sa propre lampe, qui frise le
+   * canon et la poignee, plus ce que la piece renvoie, c'est-a-dire presque
+   * rien. Lampe eteinte, l'arme doit devenir une silhouette : c'est la
+   * contrepartie de se cacher.
+   */
+  setDarkEnvironment(ambient: THREE.Color, beam: number): void {
+    const room = luminance(ambient);
+
+    this.ambientLight.color.copy(ambient).lerp(WHITE, 0.4);
+    this.ambientLight.intensity = 0.1 + room * 1.2;
+
+    /*
+     * La lampe est vissee sous le canon : sa lumiere part vers l'avant et n'en
+     * revient qu'en frisant le modele. Le point est donc place devant et sous
+     * l'arme, pas au-dessus comme une lumiere de studio.
+     */
+    this.keyLight.color.copy(WHITE);
+    this.keyLight.intensity = beam * 2.4;
+    this.keyLight.position.set(0.15, -0.5, 1);
+
+    this.fillLight.intensity = 0.04 + beam * 0.3;
+  }
+
   /** Champ de vision applique : reglage du joueur, ecarte par l'arme. */
   private applyFov(): void {
     const fov = this.settings.fov + (this.preset.fov - REFERENCE_WEAPON_FOV);

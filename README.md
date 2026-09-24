@@ -24,6 +24,11 @@ of it for now — the demons, the two teams and the match rules come next.
 
 *The whole corridor is that beam. The ducting overhead is the demons' road.*
 
+![The assault rifle in hand, lit only by its own light](docs/arme.jpg)
+
+*Nothing else lights the weapon. Switch the light off and it goes with the
+room.*
+
 Underneath is the engine it is built on, brought over whole from the rendering
 work that preceded it: it loads a level, lights it, runs a player and seven
 opponents in it at 125 Hz, and draws the result with a modern pipeline.
@@ -40,6 +45,13 @@ What it can do, briefly:
   shadow-casting spotlight rides the weapon; two more sweep the outside and come
   in through the windows. The beam's power was measured rather than guessed: a
   partition at one metre reads around 130 of 255, a ceiling at two metres 80.
+  The rifle is lit by that beam and by nothing else: switch the light off and
+  the weapon in your hands goes dark with the room, twenty-eight times dimmer.
+- **The rifle.** The soldier's only weapon, an exported model rather than a
+  game asset, brought into the hand by measuring it: the longest side is the
+  barrel, the thinnest end is the front, and the hold was set by projecting the
+  silhouette on screen until it sat in the lower quarter at a quarter of the
+  width.
 - **Levels from Quake III.** BSP v46 geometry, lightmaps, the light grid, curved patches,
   visibility, movers, triggers, and the `.shader` scripts that say how each
   surface is drawn. Archives are read over HTTP range requests, so a level is

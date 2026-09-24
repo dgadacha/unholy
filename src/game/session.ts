@@ -15,6 +15,9 @@ import { readAas } from '../formats/aas';
 import { Navigation } from './bots/Navigation';
 import { Arena, type ArenaRules, type KillNotice } from './match/Arena';
 import { Flashlight } from './light/Flashlight';
+
+/** Decor sans ambiante declaree : le noir. */
+const BLACK = new THREE.Color(0x000000);
 import type { UIManager } from '../ui/core/UIManager';
 import { ReflectionProbeManager } from '../renderer/lighting/ReflectionProbeManager';
 import { FPSCameraEffects } from '../camera/FPSCameraEffects';
@@ -622,8 +625,19 @@ export class Session {
    * l'arme.
    */
   private updateWeaponLighting(): void {
+    if (!this.viewModel) return;
     const grid = this.level?.grid;
-    if (!this.viewModel || !grid) return;
+    /*
+     * Decor sans courant : il n'y a pas de grille d'eclairage a consulter, et
+     * les planchers d'intensite des cartes du moteur d'origine laisseraient
+     * l'arme eclairee comme en plein jour. C'est sa propre lampe qui l'eclaire,
+     * et la piece n'y ajoute presque rien.
+     */
+    if (!grid) {
+      const ambient = this.level?.ambient ?? BLACK;
+      this.viewModel.setDarkEnvironment(ambient, this.flashlight.on ? 1 : 0);
+      return;
+    }
     grid.sample([this.eye.x, this.eye.y, this.eye.z], this.gridSample);
     this.camera.getWorldQuaternion(this.viewRotation);
     this.viewRotation.invert();

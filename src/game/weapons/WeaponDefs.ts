@@ -61,7 +61,9 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
   },
   machinegun: {
     id: 'machinegun',
-    name: 'Machinegun',
+    // L'arme du jeu. L'identifiant reste celui du moteur d'origine : il porte
+    // les sons, les degats et le modele de repli.
+    name: 'Assault rifle',
     kind: 'hitscan',
     fireDelay: 0.1,
     damage: 7,
