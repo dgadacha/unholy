@@ -105,6 +105,7 @@ export class MainMenu {
   /** Regles de la prochaine partie, telles que le menu les propose. */
   readonly rules: MatchRules = { ...DEFAULT_MATCH };
   private page = 'main';
+  private resizePending = false;
   private index = 0;
   private visible = false;
 
@@ -147,6 +148,13 @@ export class MainMenu {
     );
 
     for (const page of PAGES) this.pages.set(page.id, this.buildPage(page));
+    /*
+     * Le repere du selecteur est calcule depuis la place de l'entree choisie.
+     * Un changement de taille de fenetre la deplace sans passer par une
+     * selection : sur un ecran large et court, les reglages passent sur deux
+     * colonnes et le repere restait devant l'ancienne ligne.
+     */
+    window.addEventListener('resize', this.onResize, { passive: true });
     this.showPage('main');
     window.addEventListener('keydown', this.onKey);
   }
@@ -235,6 +243,7 @@ export class MainMenu {
 
   dispose(): void {
     window.removeEventListener('keydown', this.onKey);
+    window.removeEventListener('resize', this.onResize);
     this.root.remove();
   }
 
@@ -462,6 +471,16 @@ export class MainMenu {
   }
 
   /** Souligne l'entree courante et place le selecteur devant elle. */
+  /** Replace le repere apres un changement de taille, au plus une fois par image. */
+  private readonly onResize = (): void => {
+    if (!this.visible || this.resizePending) return;
+    this.resizePending = true;
+    requestAnimationFrame(() => {
+      this.resizePending = false;
+      if (this.visible) this.refresh();
+    });
+  };
+
   private refresh(): void {
     const page = this.pages.get(this.page);
     if (!page) return;

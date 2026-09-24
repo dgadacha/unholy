@@ -60,9 +60,18 @@
 
 /* Titre : le logo porte le nom, tres present sans manger l'ecran. */
 .menu__logo {
-  width: clamp(360px, 46vw, 820px);
-  max-width: 88vw;
-  margin-top: clamp(8px, 4vh, 48px);
+  /*
+   * La taille suit la largeur ET la hauteur de la fenetre. Reglee sur la seule
+   * largeur, le logo devenait enorme sur un ecran large et court, et il prenait
+   * la place des pages : le titre des reglages passait dessous et la liste
+   * debordait.
+   */
+  width: min(30vw, 480px);
+  max-width: 82vw;
+  max-height: min(19vh, 176px);
+  height: auto;
+  object-fit: contain;
+  margin-top: clamp(6px, 3vh, 36px);
   /* Presence discrete : le logo respire sur cinq secondes, sans clignoter. */
   animation: title-breathe 5.5s ease-in-out infinite;
 }
@@ -120,9 +129,24 @@
   pointer-events: none;
 }
 
+/*
+ * Une page plus haute que la place disponible defile plutot que de se
+ * superposer au logo. Cela n'arrive que sur une fenetre tres courte, et la
+ * barre reste invisible : un menu de jeu n'en montre pas.
+ */
+.menu-screen {
+  max-height: 100%;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.menu-screen::-webkit-scrollbar {
+  display: none;
+}
+
 .menu-screen__title {
-  margin: 0 0 clamp(10px, 2vh, 26px);
-  font-size: clamp(14px, 1.2vw, 20px);
+  margin: 0 0 min(clamp(10px, 2vh, 26px), 2.4vh);
+  font-size: min(clamp(14px, 1.2vw, 20px), 2.6vh);
   font-weight: 600;
   letter-spacing: 0.4em;
   text-transform: uppercase;
@@ -323,6 +347,21 @@
   width: min(620px, 84vw);
 }
 
+/*
+ * Fenetre large et courte : les reglages passent sur deux colonnes. Empilees,
+ * les treize lignes debordaient sous le pied de page alors que la place
+ * horizontale ne manquait pas. L'ordre du clavier ne change pas : c'est la
+ * mise en page qui plie, pas la liste.
+ */
+@media (max-height: 680px) and (min-width: 1000px) {
+  .menu-settings {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: clamp(20px, 2.4vw, 48px);
+    width: min(1120px, 92vw);
+  }
+}
+
 .menu-setting {
   /*
    * Une ligne de reglage se lit, elle ne s'annonce pas : son nom est plus
@@ -332,12 +371,17 @@
   opacity: 1;
   color: #8f8f93;
   display: grid;
+  line-height: 1.25;
   grid-template-columns: 1fr clamp(60px, 9vw, 120px) clamp(72px, 8vw, 110px);
   align-items: center;
   gap: clamp(10px, 1.4vw, 22px);
-  font-size: clamp(13px, 1.05vw, 18px);
+  font-size: min(clamp(13px, 1.05vw, 18px), 2.6vh);
   letter-spacing: 0.14em;
-  padding: clamp(4px, 0.7vh, 9px) clamp(10px, 1vw, 18px);
+  /*
+   * L'espacement vertical suit la hauteur de la fenetre : sur un ecran court,
+   * les treize lignes des reglages debordaient sous le pied de page.
+   */
+  padding: min(clamp(4px, 0.7vh, 9px), 1.1vh) clamp(10px, 1vw, 18px);
   transform: none;
 }
 
