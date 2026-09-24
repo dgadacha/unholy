@@ -296,6 +296,14 @@ export class Session {
     this.ui = manager;
   }
 
+  /**
+   * Recharge l'arme tenue en main. Sa silhouette n'est echantillonnee qu'au
+   * chargement : regler sa prise en main demande donc de la reprendre.
+   */
+  async reloadWeapon(): Promise<void> {
+    await this.viewModel?.reload(this.weapons.currentId);
+  }
+
   /** Etat du joueur, expose pour la mise au point. */
   get playerState(): MoveState {
     return this.state;

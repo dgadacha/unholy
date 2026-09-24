@@ -8,6 +8,9 @@ import type { WeaponId } from './WeaponDefs';
 import { OriginalAssets } from './OriginalAssets';
 import { OriginalWeaponRig } from './OriginalWeaponRig';
 import { REFERENCE_WEAPON_FOV, weaponPreset, type WeaponViewmodelPreset } from './WeaponPreset';
+import { GlbWeaponRig } from './GlbWeaponRig';
+import { VIEW_MODEL_OVERRIDES } from './ViewModelOverrides';
+import type { WeaponRig } from './WeaponRig';
 
 /** Vue des armes MD3 originales. Les tags _hand pilotent poses et placement.
  * La scene separee empeche le decor de couper l'arme au premier plan.
@@ -57,7 +60,7 @@ export interface ViewModelEnvironment {
 interface WeaponModel {
   group: THREE.Object3D;
   md3: Md3Mesh | null;
-  rig: OriginalWeaponRig;
+  rig: WeaponRig;
   /**
    * Echantillon de sommets, dans le repere du porte-arme. La silhouette se
    * mesure sur eux et non sur la boite englobante : pres de l'oeil, une boite
@@ -295,6 +298,20 @@ export class ViewModel {
     };
   }
 
+  /** Reprend une arme depuis son fichier, cache vide : sert au reglage. */
+  async reload(id: WeaponId): Promise<void> {
+    const kept = this.cache.get(id);
+    if (kept) this.disposeRig(kept.rig);
+    this.cache.delete(id);
+    if (this.current && this.currentId === id) {
+      this.holder.remove(this.current.group);
+      this.current = null;
+    }
+    this.currentId = null;
+    this.loading = null;
+    await this.setWeapon(id);
+  }
+
   async setWeapon(id: WeaponId): Promise<void> {
     if (this.disposed) return;
     if (this.currentId === id) {
@@ -387,8 +404,16 @@ export class ViewModel {
     this.muzzleAnchor.position.copy(this.holder.worldToLocal(this.localMuzzle));
   }
 
-  private disposeRig(rig: OriginalWeaponRig): void {
-    rig.hand.dispose(); rig.gun.dispose(); rig.barrel?.dispose(); rig.flash?.dispose();
+  /**
+   * Libere une arme. Les MD3 du moteur d'origine tiennent leurs maillages a
+   * part ; un modele exporte sait se liberer lui-meme.
+   */
+  private disposeRig(rig: WeaponRig): void {
+    if (rig instanceof OriginalWeaponRig) {
+      rig.hand.dispose(); rig.gun.dispose(); rig.barrel?.dispose(); rig.flash?.dispose();
+      return;
+    }
+    rig.dispose?.();
   }
 
   dispose(): void {
@@ -402,6 +427,19 @@ export class ViewModel {
   }
 
   private async load(id: WeaponId): Promise<WeaponModel | null> {
+    /*
+     * Les armes du jeu viennent d'un modele exporte, celles du moteur
+     * d'origine des archives de Quake III. Le modele passe d'abord : c'est
+     * l'arme du jeu. Les MD3 restent le repli, et le seul chemin pour les huit
+     * autres armes, qui n'ont pas encore de modele.
+     */
+    const override = VIEW_MODEL_OVERRIDES[id];
+    if (override) {
+      const glb = await GlbWeaponRig.load(override);
+      if (glb) {
+        return { group: glb.group, md3: null, rig: glb, muzzle: new THREE.Vector3(), points: samplePoints(glb.group) };
+      }
+    }
     if (!this.vfs || !this.textures) return null;
     const rig = await OriginalWeaponRig.load(new OriginalAssets(this.vfs, this.textures, this.shaders), id);
     if (!rig) return null;

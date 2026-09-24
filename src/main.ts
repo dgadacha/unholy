@@ -89,6 +89,17 @@ session.onStats = (stats) => overlay.updateStats(stats);
   building: () => playBuilding(),
   /** Charge une carte de Quake III, pour les essais de rendu. */
   bsp: () => void playFocusMap(),
+  /**
+   * Prise en main du fusil : longueur, distance, decalages et angles. Le
+   * reglage repose l'arme, la recharge pour que sa silhouette soit remesuree,
+   * et rend la mesure a l'ecran.
+   */
+  rifle: async (patch: Record<string, number> = {}) => {
+    const { RIFLE_HOLD } = await import('./game/weapons/GlbWeaponRig');
+    Object.assign(RIFLE_HOLD, patch);
+    await session.reloadWeapon();
+    return { prise: { ...RIFLE_HOLD }, mesure: session.measureViewModel() };
+  },
   /** Allume ou eteint la lampe tactique. */
   lamp: () => session.flashlight.toggle(),
   /** Puissance du faisceau, pour le regler. */

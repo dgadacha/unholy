@@ -44,10 +44,14 @@ export interface ViewModelOverride {
 }
 
 export const VIEW_MODEL_OVERRIDES: Partial<Record<WeaponId, ViewModelOverride>> = {
-  // La place, la prise en main et la taille viennent du reglage de l'arme :
-  // cette table ne sert qu'a designer le fichier et a corriger ce que la
-  // mesure ne peut pas deviner.
-  // Les armes utilisent exclusivement les MD3 des archives du jeu.
+  /*
+   * Le fusil d'assaut du militaire : la seule arme du jeu. Il prend la place de
+   * la mitrailleuse du moteur d'origine, qui reste son repli si le fichier
+   * manque. La place, la prise en main et la taille a l'ecran viennent du
+   * porte-arme, qui mesure la silhouette : cette entree ne fait que designer le
+   * fichier.
+   */
+  machinegun: { path: '/models/assault_rifle.glb' },
 };
 
 const loader = new GLTFLoader();
