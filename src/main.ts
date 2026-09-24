@@ -1,6 +1,7 @@
 import { BlobSource, HttpRangeSource, Pk3Archive, VirtualFileSystem } from './formats/pk3';
 import { ShaderLibrary } from './formats/shader';
 import { buildDemoArena } from './game/demo/arena';
+import { buildBuilding } from './game/unholy/building';
 import { FOCUS_MAP, isFocusMap } from './game/focus';
 import { loadBspLevel } from './game/bspLevel';
 import { Session } from './game/session';
@@ -78,12 +79,20 @@ let busy = false;
 session.onStats = (stats) => overlay.updateStats(stats);
 
 // Point d'entree du panneau de mise au point et des essais depuis la console.
-(window as unknown as Record<string, unknown>).__q3 = {
+(window as unknown as Record<string, unknown>).__unholy = {
   session,
   vfs: () => vfs,
   shaders: () => shaders,
   mountTimings: () => mountTimings,
   demo: () => playDemo(),
+  /** Recharge l'immeuble : c'est le niveau du jeu. */
+  building: () => playBuilding(),
+  /** Charge une carte de Quake III, pour les essais de rendu. */
+  bsp: () => void playFocusMap(),
+  /** Allume ou eteint la lampe tactique. */
+  lamp: () => session.flashlight.toggle(),
+  /** Puissance du faisceau, pour le regler. */
+  lampPower: (value: number) => session.flashlight.setIntensity(value),
   banc: (index = 0) => session.benchmark(index),
   luminance: (samples = 320) => session.histogram(samples),
   weapon: () => session.measureViewModel(),
@@ -376,6 +385,25 @@ async function playMap(entry: MapEntry, silent = false): Promise<void> {
   }
 }
 
+/**
+ * Entre dans l'immeuble. Le decor est fabrique par le code, il n'y a donc rien
+ * a charger : la partie commence dans l'image qui suit.
+ */
+function playBuilding(): void {
+  currentMap = null;
+  session.leaveMenuView();
+  menu.hide();
+  menuAudio.stopAmbience();
+  mode = 'game';
+  session.setLevel(buildBuilding());
+  session.setPaused(false);
+  session.start();
+  overlay.showGame();
+  showHud(true);
+  session.input.requestLock();
+  overlay.notify('No power in the building. Your light is on your rifle.', 6000);
+}
+
 function playDemo(): void {
   currentMap = null;
   session.leaveMenuView();
@@ -431,7 +459,7 @@ menu.onSelect = (page, entry) => {
   if (page === 'single' && entry === 'start') {
     // Les regles choisies dans le menu valent pour la partie qui commence.
     session.setRules(menu.rules);
-    void playFocusMap();
+    playBuilding();
   }
   else if (entry === 'benchmark') void startBenchmark();
   else if (entry === 'arena') playDemo();
@@ -476,6 +504,12 @@ function focusEntry(): MapEntry {
   return { path: `maps/${requested}.bsp`, name: requested, source: activeSource };
 }
 
+/**
+ * Charge une carte de Quake III. Ce n'est plus le point d'entree du jeu, mais
+ * le moteur sait toujours les lire : cela sert aux essais de rendu, a la
+ * comparaison des materiaux et au banc de mesure. On y arrive par `?map=` ou
+ * par la poignee de mise au point.
+ */
 async function playFocusMap(): Promise<void> {
   await playMap(currentMap ?? focusEntry());
 }
@@ -585,6 +619,12 @@ window.addEventListener('keydown', (event) => {
     // Tenue, elle montre les scores ; le navigateur, lui, changerait de champ.
     event.preventDefault();
     scoreboard.setOpen(true);
+    return;
+  }
+  if (event.code === 'KeyF' && mode === 'game') {
+    // Lampe tactique : l'eteindre est un choix tactique, pas un reglage.
+    const on = session.flashlight.toggle();
+    overlay.notify(on ? 'Light on' : 'Light off');
     return;
   }
   if (event.code === 'KeyR' && mode === 'game') session.respawn();

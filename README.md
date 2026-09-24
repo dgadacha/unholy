@@ -4,16 +4,43 @@
 
 ---
 
+**Unholy** is an asymmetric horror shooter: four soldiers enter a condemned
+apartment block at night, four demons are already inside. The soldiers own the
+firing lines; the demons own the walls, the ceilings and the ducts. There is no
+power in the building, so the soldiers see what their weapon lights see, and
+every death is final — no respawn, four against four down to one against one.
+
+---
+
 ## Where this stands
 
-The game does not exist yet. What exists is the engine it will be built on,
-brought over whole from the rendering work that preceded it: it loads a level,
-lights it, runs a player and seven opponents in it at 125 Hz, and draws the
-result with a modern pipeline. Everything in `src/` runs today.
+The building exists and it is dark. You can walk it: four floors, a corridor
+the length of the block, two apartments a floor, a stairwell, and a vent
+network that the soldiers cannot enter. Your rifle light is the only light you
+carry, and helicopter searchlights sweep the façades outside. That is the whole
+of it for now — the demons, the two teams and the match rules come next.
+
+![The ground floor corridor, lit only by the rifle light](docs/immeuble-couloir.jpg)
+
+*The whole corridor is that beam. The ducting overhead is the demons' road.*
+
+Underneath is the engine it is built on, brought over whole from the rendering
+work that preceded it: it loads a level, lights it, runs a player and seven
+opponents in it at 125 Hz, and draws the result with a modern pipeline.
 
 What it can do, briefly:
 
-- **Levels.** BSP v46 geometry, lightmaps, the light grid, curved patches,
+- **The building.** Built entirely by code, block by block: each block lays its
+  geometry and its collision volume at the same time, so what you see is what
+  stops you, and there is no map editor or compiler in the loop. The vent
+  network is the one asymmetry in the plan — its mouths carry a volume that
+  stops a soldier and lets a demon through, which is the engine's own clip
+  mechanism, and the test walks every duct to prove it.
+- **The dark.** No sun, no ceiling lights, an ambient just above black. A
+  shadow-casting spotlight rides the weapon; two more sweep the outside and come
+  in through the windows. The beam's power was measured rather than guessed: a
+  partition at one metre reads around 130 of 255, a ceiling at two metres 80.
+- **Levels from Quake III.** BSP v46 geometry, lightmaps, the light grid, curved patches,
   visibility, movers, triggers, and the `.shader` scripts that say how each
   surface is drawn. Archives are read over HTTP range requests, so a level is
   mounted without downloading everything.
@@ -64,7 +91,8 @@ ln -s "/path/to/Quake III Arena/baseq3" public/data/baseq3
 npm run dev
 ```
 
-The server listens on port 5214. URL parameters: `?play` starts the level
+The server listens on port 5214. **F** switches the rifle light off, which is a
+tactical choice rather than a setting. URL parameters: `?play` starts the level
 immediately, `?map=<name>` picks another one, `?mute` silences the sound,
 `?source=<folder>` chooses which data folder to mount.
 
@@ -80,6 +108,9 @@ src/
   game/         session, player movement, collision, weapons, entities
                 match/      fighters, damage, match rules, player models
                 bots/       navigation over the level's areas, behaviour
+                unholy/     the building: plan, vents, searchlights
+                build/      lays a level block by block, geometry and collision
+                light/      the rifle light
                 benchmark/  camera path and measurement
   renderer/     pipeline, settings, lighting, materials, grading, post
   ui/           menu, HUD, settings, benchmark screens
@@ -88,6 +119,7 @@ tools/
   materials.test.ts     material and shader script tests
   movement.test.ts      step climbing test
   weapons.test.ts       weapon frames and rail behaviour
+  building.test.ts      the building: corridors, doors, stairs, vents
   render-smoke.html     rendering smoke test
   profile.html          per-pass profiling
 public/
@@ -102,7 +134,7 @@ docs/           screenshots written by the capture tools
 
 ```bash
 npm run check   # TypeScript, no emit
-npm test        # materials, shader scripts, light grid, lava, movement, weapons
+npm test        # materials, shaders, light grid, lava, movement, weapons, the building
 npm run build   # type check then production build
 ```
 
@@ -114,6 +146,14 @@ Each test exists because something was broken and stayed broken for a while.
 The movement one walks a flight of sixteen unit steps: the slide move used to
 report "not blocked" as soon as one of its bumps ended in the clear, so step
 climbing was never attempted and the player stood in front of every staircase.
+
+The building one walks the building. Four of its assertions exist because the
+plan was wrong in ways nothing showed on screen: vent mouths pasted onto solid
+walls, every slab laid twice as a floor and as a ceiling, a stairwell door cut
+into a wall that was then laid solid over it, and a landing that stopped fifty
+units short of the wall, through which you fell down the shaft. It builds the
+level without rendering — the materials are painted into a canvas, which only a
+browser has — and asks the geometry whether you get through.
 
 ---
 

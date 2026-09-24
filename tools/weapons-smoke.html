@@ -10,8 +10,8 @@ import * as THREE from 'three';
 const result=document.querySelector('#result'),controls=document.querySelector('#controls');
 const next=()=>new Promise(requestAnimationFrame);
 try {
- while(!window.__q3?.session.currentLevel?.vfs) await next();
- const s=window.__q3.session,level=s.currentLevel;
+ while(!window.__unholy?.session.currentLevel?.vfs) await next();
+ const s=window.__unholy.session,level=s.currentLevel;
  s.benchmark(3);
  await s.effects.original.ready;
  const assets=new OriginalAssets(level.vfs,level.textures,level.shaders);

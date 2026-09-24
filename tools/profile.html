@@ -9,8 +9,8 @@
   import { hdMaterials } from '/src/renderer/materials/HDMaterialLoader.ts';
   const panel = document.querySelector('#profile');
   const next = () => new Promise(requestAnimationFrame);
-  while (!window.__q3?.session.currentLevel) await next();
-  const session = window.__q3.session;
+  while (!window.__unholy?.session.currentLevel) await next();
+  const session = window.__unholy.session;
   await Promise.all([...hdMaterials.materials.values()]);
   session.settings.patch({ dynamicResolution: false, renderScale: 1 });
   const dpr = Number(new URLSearchParams(location.search).get('dpr') ?? 2);

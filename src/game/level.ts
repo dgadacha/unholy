@@ -48,6 +48,12 @@ export interface Level {
   /** Bornes du decor : sous cette limite, le joueur est tombe hors de la carte. */
   floor?: number;
   /**
+   * Decor sans courant : il n'y a pas d'eclairage general, et la lampe de
+   * l'arme devient la principale source de lumiere. La session l'allume alors
+   * d'office.
+   */
+  darkness?: boolean;
+  /**
    * Brouillard declare par la carte a cet endroit, ou rien. Le brouillard n'est
    * jamais ajoute d'office : seules les cartes qui en declarent en ont.
    */

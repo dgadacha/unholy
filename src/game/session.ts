@@ -14,6 +14,7 @@ import { PlayerState } from './PlayerState';
 import { readAas } from '../formats/aas';
 import { Navigation } from './bots/Navigation';
 import { Arena, type ArenaRules, type KillNotice } from './match/Arena';
+import { Flashlight } from './light/Flashlight';
 import type { UIManager } from '../ui/core/UIManager';
 import { ReflectionProbeManager } from '../renderer/lighting/ReflectionProbeManager';
 import { FPSCameraEffects } from '../camera/FPSCameraEffects';
@@ -183,6 +184,12 @@ export class Session {
    * entre avec l'etat que la session pilote deja ; les bots sont a elle.
    */
   readonly arena: Arena;
+  /**
+   * Lampe tactique de l'arme. Elle appartient a la session et non au niveau :
+   * c'est le joueur qui la porte, et elle doit suivre son regard a chaque
+   * image.
+   */
+  readonly flashlight = new Flashlight();
   private navigation: Navigation | null = null;
   /** Hauteur de marche restant a rattraper par la vue, et son age. */
   private stepChange = 0;
@@ -306,6 +313,13 @@ export class Session {
     }
     this.level = level;
     this.scene.add(level.root);
+    /*
+     * Lampe tactique : dans un decor sans courant, elle est allumee d'office,
+     * sinon le joueur arrive devant un ecran noir. Ailleurs elle reste eteinte
+     * et ne coute rien.
+     */
+    this.flashlight.attach(this.scene);
+    this.flashlight.setEnabled(level.darkness === true);
     this.scene.background = level.sky ?? level.skyColor;
     // Le brouillard est calcule sur l'image finie, pas par materiau.
     this.scene.fog = null;
@@ -1216,6 +1230,7 @@ export class Session {
     this.aimDirection
       .set(cosPitch * Math.cos(yaw), cosPitch * Math.sin(yaw), -Math.sin(pitch))
       .normalize();
+    this.flashlight.update(this.eye, this.aimDirection, delta);
     if (!this.paused) this.weapons.update(delta, this.eye, this.aimDirection);
     // L'auditeur suit la vue : c'est ce qui place les torches et les
     // explosions autour du joueur.
