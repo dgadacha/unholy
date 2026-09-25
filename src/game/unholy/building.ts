@@ -36,12 +36,18 @@ import type { Level, SpawnPoint } from '../level';
  *
  * Reglees en regardant l'image, et non en lisant des niveaux : les releves
  * ponctuels tombaient sur des coins sombres et annoncaient une image deux fois
- * plus claire qu'elle ne l'etait. Au double de ces valeurs, le couloir
- * ressemble a un bureau mal eclaire ; a la moitie, seul le rond de la lampe de
- * secours existe et le reste redevient un ecran eteint.
+ * plus claire qu'elle ne l'etait. Au quadruple, le couloir ressemble a un
+ * bureau mal eclaire ; a la moitie, seul le rond de la lampe de secours existe
+ * et le reste redevient un ecran eteint.
+ *
+ * Elles ont ete divisees par six le jour ou les surfaces sont passees de la
+ * peinture au code a la photographie : une matiere photographiee renvoie plus
+ * et porte son propre contraste, si bien que le meme plancher de lumiere
+ * donnait le plein jour. Un reglage d'eclairage ne survit pas au changement
+ * des matieres qu'il eclaire.
  */
-const AMBIENT_FLOOR = 20;
-const SKY_FLOOR = 26;
+const AMBIENT_FLOOR = 3.5;
+const SKY_FLOOR = 4.5;
 
 /** Hauteur d'un etage, du sol au sol suivant. */
 const PITCH = 192;
@@ -80,6 +86,8 @@ const PLASTER = '#817764';
 const WOOD = '#594632';
 const DOORWAY = '#191512';
 const GLASS = '#8fb6d8';
+/** Ce que la nuit dehors laisse voir a travers une vitre sale. */
+const GLASS_GLOW = '#1c2f44';
 
 type Kind = SurfaceKind;
 
@@ -96,8 +104,28 @@ class Building {
   }
 
   /** Dalle horizontale : un sol, un plafond, un palier. */
+  /**
+   * Une dalle porte deux pieces : son dessus est le sol d'un etage, son
+   * dessous est le plafond de l'etage d'en dessous. Les faux plafonds du
+   * couloir sortaient donc en carrelage, comme le sol.
+   */
   slab(x0: number, x1: number, y0: number, y1: number, z: number, kind: Kind = 'floor', tint = CONCRETE): void {
-    this.builder.block([x0, y0, z - SLAB], [x1, y1, z], { kind, tint, skip: [] });
+    this.builder.block([x0, y0, z - SLAB], [x1, y1, z], { kind, tint, skip: ['z-'] });
+    /*
+     * Le faux plafond, colle sous la dalle. Il ne porte que sa face du
+     * dessous et n'arrete rien : c'est la dalle qui tient le joueur.
+     *
+     * Une dalle porte deux pieces a la fois, son dessus est le sol d'un
+     * etage et son dessous le plafond de l'etage d'en dessous, et les deux
+     * n'ont aucune raison d'etre de la meme matiere. Les couloirs sortaient
+     * donc avec un faux plafond en carrelage de sol.
+     */
+    this.builder.block([x0, y0, z - SLAB], [x1, y1, z - SLAB + 1], {
+      kind: 'ceiling',
+      tint,
+      solid: false,
+      skip: ['z+', 'x+', 'x-', 'y+', 'y-'],
+    });
   }
 
   /**
@@ -246,18 +274,34 @@ class Building {
         this.wall(a0, a1, fixed0, fixed1, z, sill, CONCRETE);
         this.wall(a0, a1, fixed0, fixed1, z + top, height - top, CONCRETE);
         this.builder.block([a0, fixed0 + 12, z + sill], [a1, fixed1 - 12, z + top], {
-          kind: 'water',
+          kind: 'glass',
           tint: GLASS,
-          opacity: 0.18,
+          /*
+           * La vitre porte la nuit du dehors : c'est ce qui la rend visible
+           * depuis une piece noire, et ce sur quoi se decoupe ce qui passe
+           * devant. Sans cette lueur, la crasse photographiee et l'opacite se
+           * multipliaient jusqu'a l'effacer, et l'appartement n'avait plus
+           * de fenetre du tout.
+           */
+          emissive: GLASS_GLOW,
+          opacity: 0.55,
           shadow: false,
         });
       } else {
         this.wall(fixed0, fixed1, a0, a1, z, sill, CONCRETE);
         this.wall(fixed0, fixed1, a0, a1, z + top, height - top, CONCRETE);
         this.builder.block([fixed0 + 12, a0, z + sill], [fixed1 - 12, a1, z + top], {
-          kind: 'water',
+          kind: 'glass',
           tint: GLASS,
-          opacity: 0.18,
+          /*
+           * La vitre porte la nuit du dehors : c'est ce qui la rend visible
+           * depuis une piece noire, et ce sur quoi se decoupe ce qui passe
+           * devant. Sans cette lueur, la crasse photographiee et l'opacite se
+           * multipliaient jusqu'a l'effacer, et l'appartement n'avait plus
+           * de fenetre du tout.
+           */
+          emissive: GLASS_GLOW,
+          opacity: 0.55,
           shadow: false,
         });
       }

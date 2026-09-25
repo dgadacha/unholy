@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { hasPhoto, photoTextures } from './PhotoSurfaces';
 
 /**
  * Textures fabriquees au chargement. Elles servent a l'arene de demonstration,
@@ -114,10 +115,23 @@ function finish(texture: THREE.Texture, srgb: boolean): THREE.Texture {
   return texture;
 }
 
-export type SurfaceKind = 'metal' | 'floor' | 'trim' | 'rock' | 'grate' | 'glow' | 'water' | 'plaster' | 'wood' | 'fabric' | 'tile';
+export type SurfaceKind =
+  | 'metal' | 'floor' | 'trim' | 'rock' | 'grate' | 'glow' | 'water'
+  | 'plaster' | 'wood' | 'fabric' | 'tile'
+  /** Dalle de faux plafond : c'est le dessous d'une dalle, pas son dessus. */
+  | 'ceiling'
+  /** Vitre sale d'une baie : la seule surface a travers laquelle on voit. */
+  | 'glass';
 
 /** Fabrique la couleur, le relief et la rugosite d'une surface. */
 export function surfaceTextures(kind: SurfaceKind, tint = '#6b7078'): SurfaceTextures {
+  /*
+   * Les surfaces qu'on voit le plus viennent d'images, et non du bruit : la
+   * teinte demandee ne sert alors plus a peindre la matiere, elle colore le
+   * materiau qui la porte.
+   */
+  if (hasPhoto(kind)) return photoTextures(kind);
+
   const key = `${kind}:${tint}`;
   const cached = cache.get(key);
   if (cached) return cached;
