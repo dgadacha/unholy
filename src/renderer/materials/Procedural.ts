@@ -86,10 +86,7 @@ function normalFromHeight(height: Float32Array, size: number, strength: number):
       data[index + 3] = 255;
     }
   }
-  const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
-  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  texture.needsUpdate = true;
-  return texture;
+  return dataTexture(data, size);
 }
 
 function grayTexture(values: Float32Array, size: number): THREE.DataTexture {
@@ -101,8 +98,23 @@ function grayTexture(values: Float32Array, size: number): THREE.DataTexture {
     data[i * 4 + 2] = level;
     data[i * 4 + 3] = 255;
   }
+  return dataTexture(data, size);
+}
+
+/**
+ * Carte de donnees prete a couvrir une grande surface.
+ *
+ * Sans filtrage lineaire ni niveaux de reduction, une telle carte scintille
+ * des qu'elle est repetee et vue de loin : c'est le grain qu'on prend pour du
+ * bruit de rendu.
+ */
+function dataTexture(data: Uint8Array<ArrayBuffer>, size: number): THREE.DataTexture {
   const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.generateMipmaps = true;
+  texture.anisotropy = 8;
   texture.needsUpdate = true;
   return texture;
 }

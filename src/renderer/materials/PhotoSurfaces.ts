@@ -145,9 +145,24 @@ export function photoTextures(kind: string): SurfaceTextures {
   return textures;
 }
 
+/**
+ * Carte de donnees vide, deja reglee comme elle devra l'etre.
+ *
+ * Le reglage ne peut pas attendre l'arrivee de l'image : chaque materiau
+ * travaille sur une copie de cette carte, les copies sont faites au montage du
+ * decor, et une copie ne suit que la matiere de l'original, pas son filtrage.
+ * Regler plus tard revient donc a ne regler que l'original, que personne ne
+ * dessine. Une carte de donnees arrive en echantillonnage au plus proche et
+ * sans niveaux de reduction : etalee sur un couloir, elle scintille a chaque
+ * pas, et le decor se couvre d'un grain qu'on prend pour du bruit de rendu.
+ */
 function flat(values: number[]): THREE.DataTexture {
   const texture = new THREE.DataTexture(new Uint8Array(values), 1, 1, THREE.RGBAFormat);
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.generateMipmaps = true;
+  texture.anisotropy = 8;
   texture.needsUpdate = true;
   return texture;
 }
@@ -188,8 +203,17 @@ function derive(kind: string, texture: THREE.Texture): void {
   const span = Math.max(0.02, high - low);
   for (let i = 0; i < height.length; i++) height[i] = (height[i] - low) / span;
 
-  entry.normalMap.dispose();
-  entry.roughnessMap.dispose();
+  /*
+   * Le grain de l'image n'est pas du relief.
+   *
+   * Une photo porte le bruit de son capteur et celui de sa compression, a la
+   * taille du pixel. Pris tel quel comme hauteur, ce bruit donne une normale
+   * differente a chaque pixel, et la surface se met a scintiller des qu'on
+   * bouge. Un lissage court l'efface et laisse ce qu'on voulait : les joints,
+   * les eclats, les creux, qui font plusieurs pixels de large.
+   */
+  blur(height, size);
+
   const strength = RELIEF[kind] ?? 2;
   const [smooth, coarse] = ROUGHNESS[kind] ?? [0.6, 0.95];
 
@@ -225,10 +249,33 @@ function derive(kind: string, texture: THREE.Texture): void {
   replace(entry.roughnessMap as THREE.DataTexture, rough, size);
 }
 
-/** Remplace le contenu d'une carte deja portee par des materiaux. */
+/** Lissage separable sur trois points, en bouclant sur les bords. */
+function blur(field: Float32Array, size: number): void {
+  const pass = new Float32Array(field.length);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const left = field[y * size + ((x - 1 + size) % size)];
+      const right = field[y * size + ((x + 1) % size)];
+      pass[y * size + x] = (left + field[y * size + x] * 2 + right) * 0.25;
+    }
+  }
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const up = pass[((y - 1 + size) % size) * size + x];
+      const down = pass[((y + 1) % size) * size + x];
+      field[y * size + x] = (up + pass[y * size + x] * 2 + down) * 0.25;
+    }
+  }
+}
+
+/**
+ * Remplace le contenu d'une carte deja portee par des materiaux.
+ *
+ * La matiere d'une texture vit dans une source partagee par toutes ses
+ * copies : la changer ici suffit a ce que le decor entier la reprenne, sans
+ * avoir a retrouver qui porte quoi.
+ */
 function replace(texture: THREE.DataTexture, data: Uint8Array, size: number): void {
   texture.image = { data, width: size, height: size };
-  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  texture.anisotropy = 4;
   texture.needsUpdate = true;
 }
