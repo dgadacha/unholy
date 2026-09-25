@@ -271,11 +271,20 @@
 }
 
 /* Bas d'ecran : presque invisible, comme le demande la mise en page. */
+/*
+ * Bas de page, colle a droite.
+ *
+ * Il etait etale sur toute la largeur, donc son coin gauche tombait sous les
+ * entrees du menu, qui sont descendues dans cet angle : deux blocs de petites
+ * capitales l'un au-dessus de l'autre, a soixante pixels d'ecart. La signature
+ * passe donc de l'autre cote, ou il n'y a rien.
+ */
 .menu__footer {
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
+  text-align: right;
   gap: 16px;
   font-family: var(--ui-font);
   font-size: clamp(11px, 0.75vw, 13px);
@@ -312,9 +321,12 @@
 }
 
 .menu__notes {
-  flex: 1;
+  /* Les messages restent a gauche de la signature, et ne la poussent pas. */
+  order: -1;
+  flex: 0 1 auto;
+  max-width: 48vw;
   min-width: 0;
-  text-align: center;
+  text-align: right;
   letter-spacing: 0.08em;
   text-transform: none;
   white-space: nowrap;
