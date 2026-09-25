@@ -63,7 +63,10 @@ function walkTo(x: number, y: number): void {
 }
 for (let floor = 0; floor < FLOORS - 1; floor++) {
   walkTo(-690, -230); walkTo(-690, -620); walkTo(-430, -620); walkTo(-430, -230);
-  assert.ok(Math.abs(state.origin[2] - ((floor + 1) * PITCH - PLAYER_MINS[2])) < 1, 'next landing reached');
+  for (let tick = 0; tick < 125; tick++) mover.step(state, {
+    forward: 0, right: 0, up: 0, jump: false, crouch: false, yaw: 0, pitch: 0,
+  }, 1 / 125);
+  assert.ok(Math.abs(state.origin[2] - ((floor + 1) * PITCH - PLAYER_MINS[2])) < 1, `next landing reached: ${state.origin}, floor ${floor}`);
 }
 for (const spawn of level.spawns) assert.ok(standing(spawn.origin), 'spawn clears walls, furniture and ceiling');
 
@@ -76,3 +79,11 @@ assert.ok(160 * SCALE / eyeHeight >= 1.8 && 160 * SCALE / eyeHeight <= 2.2, 'res
 assert.equal(level.darkness, true);
 assert.ok(level.spawns.length >= 8);
 console.log('PASS scaled building: human proportions, doors, apartment loops, continuous stairs, spawns, sealed openings and unobstructed ceilings');
+
+assert.ok(level.playerSpawn && level.playerSpawn.origin[2] < 33, 'fixed human entry is at the ground floor');
+const { pickSpawn } = await import('../src/game/level');
+for (let i = 0; i < 12; i++) assert.equal(pickSpawn(level, i), level.playerSpawn, 'human entry never picks an upper floor');
+// Trace across the under-slab at mid-flight: real sloping collision, not its bounding box.
+const underside = world.trace(buildingPoint([-690, -416, 0]), buildingPoint([-690, -416, 80]), ZERO, ZERO, MILITARY);
+assert.ok(Math.abs(underside.endPosition[2] - 32 * SCALE) < 0.2, 'waist slab has a continuous sloping underside');
+console.log('PASS stair structure and fixed ground-floor player entry');

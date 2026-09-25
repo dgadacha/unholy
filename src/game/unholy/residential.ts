@@ -181,16 +181,45 @@ export class Residential {
     this.box([x0, 694, z], [x1, 704, z + 6]);
   }
 
+  private handrail(a: Vec3, b: Vec3): void {
+    if (!this.visual) return;
+    const start = new THREE.Vector3(...a), end = new THREE.Vector3(...b);
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, start.distanceTo(end), 10),
+      new THREE.MeshStandardMaterial({ color: '#514032', roughness: 0.8 }));
+    mesh.position.copy(start).add(end).multiplyScalar(0.5);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), end.sub(start).normalize());
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    this.signs.add(mesh);
+  }
+
   stairs(z: number, last: boolean): void {
-    // Short balustrade segments follow each tread; the middle stays open vertically.
-    if (!last) for (let i = 0; i < 6; i++) {
-      const y = -316 - i * 40;
-      for (const [x, height] of [[-612, (i + 1) * 16], [-512, 192 - i * 16]]) {
-        this.box([x, y - 2, z + height], [x + 4, y + 2, z + height + 43], 'metal', '#33342e');
-        this.box([x - 2, y - 20, z + height + 41], [x + 6, y + 20, z + height + 46]);
+    if (!last) {
+      for (let i = 0; i <= 12; i++) {
+        const y = -296 - i * 20;
+        for (const [x, height] of [[-611, i * 8], [-512, 192 - i * 8]]) {
+          this.box([x, y - 1.5, z + height], [x + 3, y + 1.5, z + height + 50], 'metal', '#33342e');
+        }
       }
+      this.handrail([-609.5, -296, z + 50], [-609.5, -536, z + 146]);
+      this.handrail([-510.5, -536, z + 146], [-510.5, -296, z + 242]);
+      // Matching rails at the walls, at the same continuous slope.
+      this.handrail([-744, -296, z + 50], [-744, -536, z + 146]);
+      this.handrail([-376, -536, z + 146], [-376, -296, z + 242]);
+      for (let i = 0; i <= 12; i += 4) {
+        const y = -296 - i * 20;
+        this.box([-768, y - 2, z + i * 8 + 47], [-742, y + 2, z + i * 8 + 50], 'metal', '#33342e', false);
+        this.box([-378, y - 2, z + 192 - i * 8 + 47], [-352, y + 2, z + 192 - i * 8 + 50], 'metal', '#33342e', false);
+      }
+      this.landingRail(-536, z + 96);
     }
-    this.box([-754, -702, z + 33], [-366, -697, z + 75], 'plaster', '#515b4f', false);
-    this.sign(`${Math.round(z / 192) + 1}  ↑`, -558, -696, z + 157, 62, 34, 'north');
+    if (z > 0) this.landingRail(-296, z);
+    this.sign(z === 0 ? 'RDC' : `0${Math.round(z / 192)}`, -558, -696, z + 157, 62, 34, 'north');
+  }
+
+  private landingRail(y: number, z: number): void {
+    for (let x = -608; x <= -512; x += 16) {
+      this.box([x - 1.5, y - 1.5, z], [x + 1.5, y + 1.5, z + 50], 'metal', '#33342e');
+    }
+    this.handrail([-609.5, y, z + 50], [-510.5, y, z + 50]);
   }
 }

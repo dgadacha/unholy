@@ -687,7 +687,9 @@ export class Arena {
       })
       .sort((a, b) => b.nearest - a.nearest);
 
-    const choice = ranked[Math.floor(Math.random() * Math.min(3, ranked.length))].spawn;
+    const choice = fighter.kind === 'human' && level.playerSpawn
+      ? level.playerSpawn
+      : ranked[Math.floor(Math.random() * Math.min(3, ranked.length))].spawn;
     resetMoveState(fighter.state, [...choice.origin] as Vec3);
     fighter.player.reset();
     fighter.yaw = choice.yaw;

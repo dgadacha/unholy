@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { loadOverride, type ViewModelOverride } from './ViewModelOverrides';
 import type { WeaponRig } from './WeaponRig';
+import { operatorArms } from './OperatorArms';
 import { VIEWMODEL } from './ViewmodelFeel';
 
 /**
@@ -96,6 +97,7 @@ export class GlbWeaponRig implements WeaponRig {
      */
     this.applyHold();
     this.group.add(this.model);
+    this.model.add(operatorArms());
     /*
      * Le bout du canon est pris sur le modele redresse : le plus loin devant,
      * au milieu du reste. C'est de la que partent les balles et l'eclat, donc

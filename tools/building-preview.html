@@ -1,7 +1,7 @@
 <!doctype html><meta charset="utf-8"><base href="/"><title>UNHOLY · Level review</title>
 <canvas id="viewport"></canvas><div id="overlay"></div>
 <div style="position:fixed;z-index:10000;top:12px;left:12px;background:#171b19e0;color:#ddd;padding:12px;font:12px monospace">
-<button id="hall">Couloir</button><button id="room">Appartement</button><button id="stairs">Escalier</button><button id="top">Dernier étage</button><button id="gun">Fusil</button><button id="fire">Recul</button>
+<button id="hall">Couloir</button><button id="room">Appartement</button><button id="stairs">Escalier</button><button id="landing">Demi-palier</button><button id="top">Dernier étage</button><button id="gun">Fusil</button><button id="fire">Recul</button><button id="nv">Vision nocturne : OFF</button><button id="lamp">Lampe</button>
 <pre id="result">Chargement…</pre></div>
 <script type="module">
 import '/src/main.ts';
@@ -18,9 +18,12 @@ function view(x,y,z,yaw,pitch=0){s.leaveMenuView();s.setPaused(true);api.place(x
 document.querySelector('#hall').onclick=()=>view(-690,24,0,0);
 document.querySelector('#room').onclick=()=>view(-520,185,0,145,0);
 document.querySelector('#stairs').onclick=()=>view(-685,-207,0,-75,-4);
+document.querySelector('#landing').onclick=()=>view(-568,-620,96,90,0);
 document.querySelector('#top').onclick=()=>view(155,340,576,45,0);
 document.querySelector('#gun').onclick=async()=>{document.querySelector('#result').textContent=JSON.stringify(await api.rifle(),null,2);};
 document.querySelector('#fire').onclick=()=>s.viewModel.fire(new THREE.Color('white'),true);
+document.querySelector('#nv').onclick=()=>{const on=!s.settings.current.nightVision;s.settings.patch({nightVision:on});document.querySelector('#nv').textContent='Vision nocturne : '+(on?'ON':'OFF');};
+document.querySelector('#lamp').onclick=()=>api.lamp();
 view(-690,24,0,0);
 document.querySelector('#result').textContent='Points de vue de validation';
 </script>

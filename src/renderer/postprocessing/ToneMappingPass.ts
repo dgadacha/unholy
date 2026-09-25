@@ -24,6 +24,7 @@ const ToneMappingShader = {
     shadowLift: { value: 0 },
     splitTone: { value: 0 },
     gradingEnabled: { value: 1 },
+    nightVision: { value: 0 },
   },
 
   vertexShader: /* glsl */ `
@@ -46,6 +47,7 @@ const ToneMappingShader = {
     uniform float shadowLift;
     uniform float splitTone;
     uniform float gradingEnabled;
+    uniform float nightVision;
     varying vec2 vUv;
 
     // Courbe filmique : les hautes lumieres se tassent au lieu de se couper net.
@@ -120,6 +122,13 @@ const ToneMappingShader = {
       float darkness = 1.0 - smoothstep(0.0, 0.14, gradeLuminance(color));
       color += shadowLift * darkness;
 
+      if (nightVision > 0.5) {
+        float signal = 1.0 - exp(-max(gradeLuminance(texel.rgb), 0.0) * 5.0);
+        float edge = (1.0 - smoothstep(0.25, 0.8, length(vUv - 0.5)));
+        float grain = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
+        signal = clamp(pow(signal, 0.65) * edge + grain * 0.025, 0.0, 1.0);
+        color = vec3(0.12, 1.0, 0.24) * signal;
+      }
       gl_FragColor = sRGBTransferOETF(vec4(max(color, vec3(0.0)), texel.a));
     }
   `,
@@ -158,6 +167,7 @@ export class ToneMappingPass extends ShaderPass {
     const settings = this.settings;
     const grade = settings.colorGrading ? this.grade : NEUTRAL_GRADE;
     const uniforms = this.uniforms as Record<string, { value: number }>;
+    uniforms.nightVision.value = settings.nightVision ? 1 : 0;
     uniforms.exposure.value = settings.exposure * grade.exposure;
     uniforms.whitePoint.value = settings.whitePoint * grade.whitePoint;
     uniforms.contrast.value = settings.contrast * grade.contrast;

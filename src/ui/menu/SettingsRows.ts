@@ -59,6 +59,11 @@ function share(value: number, min: number, max: number): number {
 
 export const SETTING_ROWS: SettingRow[] = [
   {
+    id: 'nightVision', label: 'Vision nocturne · N',
+    read: settings => ({ text: settings.nightVision ? 'on' : 'off' }),
+    step: (_direction, settings, store) => store.patch({ nightVision: !settings.nightVision }),
+  },
+  {
     id: 'preset',
     label: 'Preset',
     read: (_settings, store) => ({ text: PRESET_LABELS[store.presetName] }),

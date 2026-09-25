@@ -669,6 +669,13 @@ window.addEventListener('keydown', (event) => {
     scoreboard.setOpen(true);
     return;
   }
+  if (event.code === 'KeyN' && mode === 'game' && !menu.isVisible && !event.repeat) {
+    event.preventDefault();
+    const on = !session.settings.current.nightVision;
+    session.settings.patch({ nightVision: on });
+    overlay.notify(on ? 'Vision nocturne activée · N' : 'Vision nocturne désactivée · N');
+    return;
+  }
   if (event.code === 'KeyF' && mode === 'game') {
     // Lampe tactique : l'eteindre est un choix tactique, pas un reglage.
     const on = session.flashlight.toggle();

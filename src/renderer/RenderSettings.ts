@@ -14,6 +14,7 @@ export type PresetName = 'original' | 'low' | 'medium' | 'high' | 'ultra';
 export interface ModernRenderSettings {
   /** Rendu en virgule flottante : les sources vives depassent 1. */
   hdr: boolean;
+  nightVision: boolean;
   dynamicLights: boolean;
   shadows: boolean;
   contactShadows: boolean;
@@ -143,6 +144,7 @@ export interface ModernRenderSettings {
 export const PRESETS: Record<PresetName, ModernRenderSettings> = {
   original: {
     hdr: false,
+    nightVision: false,
     dynamicLights: false,
     shadows: false,
     contactShadows: false,
@@ -263,6 +265,7 @@ export const PRESETS: Record<PresetName, ModernRenderSettings> = {
 function baseModern(): ModernRenderSettings {
   return {
     hdr: true,
+    nightVision: false,
     dynamicLights: true,
     shadows: true,
     contactShadows: true,

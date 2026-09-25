@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { type Vec3 } from '../../formats/bsp';
 import { BUILDING_SCALE, buildingPoint } from './scale';
-import { CollisionWorld, boxBrush, PLAYER_MINS } from '../collision';
+import { CollisionWorld, PLAYER_MINS } from '../collision';
 import { BlockBuilder } from '../build/BlockBuilder';
 import { Residential } from './residential';
 import type { SurfaceKind } from '../../renderer/materials/Procedural';
@@ -308,46 +308,29 @@ class Building {
     }
   }
 
-  /**
-   * Un etage d'escalier : deux demi-volees et deux paliers, en marches de seize
-   * unites, la hauteur que le deplacement franchit sans sauter.
-   *
-   * Une volee droite sur toute la hauteur d'un etage aurait mesure douze
-   * marches de quarante, soit presque cinq metres de profondeur : elle sortait
-   * de la cage. Les deux demi-volees se cotoient, l'une descend vers le sud,
-   * l'autre remonte vers le nord, et on revient donc a chaque etage devant la
-   * porte du couloir.
-   */
+  /** Two opposed flights, twelve closed risers each, around an open stairwell. */
   stairFloor(zStart: number): void {
-    const half = PITCH / 32;
-    const depth = 40;
-    const westX: [number, number] = [STAIR_X0 + 32, STAIR_X0 + 160];
-    const eastX: [number, number] = [STAIR_X1 - 160, STAIR_X1 - 32];
-
-    // Palier haut, devant la porte du couloir : il recoit aussi la derniere
-    // marche de la volee montante de l'etage du dessous.
-    this.slab(STAIR_X0, STAIR_X1, -296, -HALL - SLAB, zStart, 'floor', CONCRETE);
-
-    // Demi-volee descendante, cote ouest.
-    for (let i = 0; i < half; i++) {
-      const z = zStart + (i + 1) * 16;
-      const y1 = -296 - i * depth;
-      this.slab(westX[0], westX[1], y1 - depth, y1, z, 'floor', CONCRETE);
-    }
-    /*
-     * Palier bas, au sud, qui relie les deux volees. Il va jusqu'au mur : en
-     * s'arretant avant, il laissait une fente par laquelle on tombait dans la
-     * cage.
-     */
-    const mid = zStart + half * 16;
-    this.slab(STAIR_X0, STAIR_X1, Y0, -296 - half * depth, mid, 'floor', CONCRETE);
-    // Demi-volee montante, cote est : elle debouche au niveau suivant.
-    for (let i = 0; i < half; i++) {
-      const z = mid + (i + 1) * 16;
-      const y0 = -296 - half * depth + i * depth;
-      this.slab(eastX[0], eastX[1], y0, y0 + depth, z, 'floor', CONCRETE);
+    const steps = 12, rise = 8, tread = 20;
+    const front = -296, back = front - steps * tread;
+    const landing = (y0: number, y1: number, z: number): void => {
+      this.slab(STAIR_X0, STAIR_X1, y0, y1, z, 'plaster', '#655f53');
+      this.builder.block([STAIR_X0, y0, z], [STAIR_X1, y1, z + 0.1], { kind: 'tile', tint: '#777365', solid: false });
+    };
+    landing(front, -HALL - SLAB, zStart);
+    landing(Y0, back, zStart + 96);
+    this.builder.slopedSlab(-736, -608, back, front, zStart + 96, zStart, 16);
+    this.builder.slopedSlab(-512, -384, back, front, zStart + 96, zStart + 192, 16);
+    for (let i = 0; i < steps; i++) {
+      const westY = front - (i + 1) * tread;
+      const eastY = back + i * tread;
+      const westZ = zStart + (i + 1) * rise;
+      const eastZ = zStart + 96 + (i + 1) * rise;
+      for (const [x0, x1, y0, z] of [[-736, -608, westY, westZ], [-512, -384, eastY, eastZ]]) {
+        this.builder.block([x0, y0, z - rise], [x1, y0 + tread, z], { kind: 'plaster', tint: '#726e63' });
+      }
     }
   }
+
 }
 
 /**
@@ -432,7 +415,7 @@ export function buildBuilding(visual = true): Level {
     // ni plafond ici. Une volee par etage, alternee, et un palier qui donne sur
     // le couloir.
     if (floor < FLOORS - 1) b.stairFloor(z);
-    else b.slab(STAIR_X0, STAIR_X1, -296, -HALL - SLAB, z);
+    else b.slab(STAIR_X0, STAIR_X1, -296, -HALL - SLAB, z, 'plaster', '#655f53');
     decor.hall(floor, z);
     decor.apartment(X0, -64, z, floor);
     decor.apartment(64, X1, z, floor);
@@ -575,7 +558,8 @@ export function buildBuilding(visual = true): Level {
   });
   root.updateMatrixWorld(true);
   const scaledBrushes = builder.brushes.map(brush =>
-    boxBrush(buildingPoint(brush.mins), buildingPoint(brush.maxs), brush.contents));
+    ({ ...brush, mins: buildingPoint(brush.mins), maxs: buildingPoint(brush.maxs),
+      sides: brush.sides.map(side => ({ ...side, dist: side.dist * BUILDING_SCALE })) }));
   const scaledSpawns = spawns.map(spawn => ({
     ...spawn,
     origin: [spawn.origin[0] * BUILDING_SCALE, spawn.origin[1] * BUILDING_SCALE,
@@ -587,6 +571,7 @@ export function buildBuilding(visual = true): Level {
     root,
     collision: new CollisionWorld(scaledBrushes),
     spawns: scaledSpawns,
+    playerSpawn: scaledSpawns[0],
     ambient: new THREE.Color('#080a0e'),
     skyColor: new THREE.Color('#05070c'),
     animated,

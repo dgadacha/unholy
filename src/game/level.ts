@@ -29,6 +29,8 @@ export interface Level {
   shaders?: ShaderLibrary;
   collision: CollisionWorld;
   spawns: SpawnPoint[];
+  /** Optional fixed player entry; bots still use the map spawn pool. */
+  playerSpawn?: SpawnPoint;
   /**
    * Grille d'eclairage de la carte : ce qui eclaire ce qui bouge, joueurs,
    * objets a ramasser et arme tenue en main.
@@ -67,6 +69,7 @@ export interface Level {
 }
 
 export function pickSpawn(level: Level, index?: number): SpawnPoint {
+  if (level.playerSpawn) return level.playerSpawn;
   if (index === undefined) {
     const forced = new URLSearchParams(location.search).get('spawn');
     index = forced !== null ? Number(forced) : Math.floor(Math.random() * level.spawns.length);

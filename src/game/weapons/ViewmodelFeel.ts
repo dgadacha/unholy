@@ -18,22 +18,13 @@ export const VIEWMODEL = {
    * et les decalages placent son centre par rapport a l'oeil.
    */
   hold: {
-    length: 20,
-    /*
-     * Cadrage de hanche, regle en regardant l'image. Deux exigences qui se
-     * contredisent : l'arme doit sortir du cadre par le coin bas-droit, sinon
-     * elle flotte, et elle doit laisser voir le couloir, sinon elle encombre.
-     * Loin et poussee dans le coin satisfait les deux : la crosse est coupee,
-     * la carcasse et l'optique se lisent, et le couloir reste degage. Plus pres,
-     * l'optique devient le centre de l'ecran ; moins pousse, l'arme decolle des
-     * bords et redevient une image.
-     */
-    forward: 22,
-    right: 12.5,
-    down: 11.5,
-    /** Ouverture vers l'interieur, en degres, et inclinaison. */
-    yaw: 20,
-    roll: 4,
+    // Shoulder pose. Keep the stock behind/below the view and the hands attached.
+    length: 26,
+    forward: 9,
+    right: 4,
+    down: 7,
+    yaw: 0,
+    roll: 0,
   },
 
   /**
@@ -60,8 +51,8 @@ export const VIEWMODEL = {
      * sont posees au-dessus de ce qu'un demi-tour normal produit, sinon elles
      * mordent tout le temps et un geste violent se lit comme un geste lent.
      */
-    maxShift: 3,
-    maxTurn: 0.16,
+    maxShift: 0.7,
+    maxTurn: 0.045,
   },
 
   /** Balancement de la marche : le pas se sent, il ne se voit pas. */

@@ -295,3 +295,27 @@ assert.equal(window.translucent, false);
 assert.equal(window.alphaTest, false);
 assert.equal(window.lightmapped, true);
 console.log("PASS opacite : lue dans le script, un canal alpha ne decoupe rien");
+
+// Night vision must switch both ways without modifying normal image grading.
+const { ToneMappingPass } = await import('../src/renderer/postprocessing/ToneMappingPass');
+const { PRESETS } = await import('../src/renderer/RenderSettings');
+const { NightVision } = await import('../src/game/light/NightVision');
+const nvTone = new ToneMappingPass({ ...PRESETS.high });
+const normalExposure = nvTone.uniforms.exposure.value;
+nvTone.apply({ ...PRESETS.high, nightVision: true });
+assert.equal(nvTone.uniforms.nightVision.value, 1);
+nvTone.apply({ ...PRESETS.high, nightVision: false });
+assert.equal(nvTone.uniforms.nightVision.value, 0);
+assert.equal(nvTone.uniforms.exposure.value, normalExposure);
+const nv = new NightVision();
+const nvScene = new THREE.Scene();
+nv.attach(nvScene); nv.attach(nvScene);
+assert.equal(nvScene.children.length, 2, 'reloading a map must not duplicate IR sources');
+nv.update(new THREE.Vector3(10, 20, 50), new THREE.Vector3(1, 0, 0), true);
+assert.equal(nv.light.visible, true);
+assert.equal(nv.light.castShadow, true);
+assert.deepEqual(nv.light.target.position.toArray(), [510, 20, 50]);
+nv.update(new THREE.Vector3(), new THREE.Vector3(1, 0, 0), false);
+assert.equal(nv.light.visible, false);
+nv.light.dispose(); nvTone.dispose();
+console.log('PASS night vision: toggle, grading restoration, occluding illuminator and map reload');

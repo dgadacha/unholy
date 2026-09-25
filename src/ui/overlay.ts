@@ -34,7 +34,7 @@ export class Overlay {
         <div class="stats"></div>
         <div class="hint">
           Move: W A S D &middot; Jump: space &middot; Crouch: Ctrl<br />
-          Fire: click &middot; Weapons: 1 to 9 and wheel &middot; Settings: G<br />
+          Fire: click &middot; Weapons: 1 to 9 and wheel &middot; Settings: G &middot; Night vision: N<br />
           Look: mouse &middot; Release: Esc &middot; Respawn: R &middot; Menu: M
         </div>
       </div>

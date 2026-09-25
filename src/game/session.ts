@@ -14,6 +14,7 @@ import { PlayerState } from './PlayerState';
 import { readAas } from '../formats/aas';
 import { Navigation } from './bots/Navigation';
 import { Arena, type ArenaRules, type KillNotice } from './match/Arena';
+import { NightVision } from './light/NightVision';
 import { Flashlight } from './light/Flashlight';
 
 /** Decor sans ambiante declaree : le noir. */
@@ -233,6 +234,7 @@ export class Session {
    * image.
    */
   readonly flashlight = new Flashlight();
+  readonly nightVision = new NightVision();
   private navigation: Navigation | null = null;
   /** Hauteur de marche restant a rattraper par la vue, et son age. */
   private stepChange = 0;
@@ -376,6 +378,7 @@ export class Session {
      * et ne coute rien.
      */
     this.flashlight.attach(this.scene);
+    this.nightVision.attach(this.scene);
     this.flashlight.setEnabled(level.darkness === true);
 
     /*
@@ -692,7 +695,7 @@ export class Session {
      */
     if (!grid) {
       this.dark.ambient = this.level?.ambient ?? BLACK;
-      this.dark.beam = this.flashlight.on ? 1 : 0;
+      this.dark.beam = this.flashlight.on || this.settings.current.nightVision ? 1 : 0;
       this.sampleDarkRoom(delta);
       this.viewModel.setDarkEnvironment(this.dark);
       return;
@@ -1394,6 +1397,7 @@ export class Session {
       .set(cosPitch * Math.cos(yaw), cosPitch * Math.sin(yaw), -Math.sin(pitch))
       .normalize();
     this.flashlight.update(this.eye, this.aimDirection, delta);
+    this.nightVision.update(this.eye, this.aimDirection, this.settings.current.nightVision);
     if (!this.paused) this.weapons.update(delta, this.eye, this.aimDirection);
     // L'auditeur suit la vue : c'est ce qui place les torches et les
     // explosions autour du joueur.
