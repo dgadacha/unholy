@@ -74,8 +74,7 @@ export class GlbWeaponRig implements WeaponRig {
 
     // Le modele est deja ramene a une longueur de un, canon vers l'avant.
     const box = new THREE.Box3().setFromObject(model);
-    const muzzleAt = new THREE.Vector3(box.max.x, (box.min.y + box.max.y) / 2, (box.min.z + box.max.z) / 2);
-    return new GlbWeaponRig(model, muzzleAt);
+    return new GlbWeaponRig(model, barrelEnd(model, box));
   }
 
   /**
@@ -144,4 +143,45 @@ export class GlbWeaponRig implements WeaponRig {
     });
     this.group.clear();
   }
+}
+
+/**
+ * Bout du canon, pris sur la matiere et non sur la boite.
+ *
+ * Le centre de la boite englobante est a mi-hauteur du fusil entier, crosse et
+ * chargeur compris, soit nettement sous l'ame du canon : l'eclat de tir s'y
+ * posait sous le garde-main, a cote du trou par ou sort la balle. En ne
+ * gardant que la tranche avant du modele, il ne reste que le canon lui-meme,
+ * et sa moyenne donne son axe.
+ */
+function barrelEnd(model: THREE.Object3D, box: THREE.Box3): THREE.Vector3 {
+  // Tranche avant : assez mince pour n'attraper que le canon, assez epaisse
+  // pour contenir des sommets sur un modele peu dense.
+  const depth = (box.max.x - box.min.x) * 0.03;
+  const limit = box.max.x - depth;
+  const point = new THREE.Vector3();
+  let sumY = 0;
+  let sumZ = 0;
+  let count = 0;
+
+  model.updateWorldMatrix(true, true);
+  model.traverse((object) => {
+    const mesh = object as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const positions = mesh.geometry.getAttribute('position');
+    if (!positions) return;
+    for (let i = 0; i < positions.count; i++) {
+      point.fromBufferAttribute(positions as THREE.BufferAttribute, i);
+      point.applyMatrix4(mesh.matrixWorld);
+      if (point.x < limit) continue;
+      sumY += point.y;
+      sumZ += point.z;
+      count++;
+    }
+  });
+
+  if (count === 0) {
+    return new THREE.Vector3(box.max.x, (box.min.y + box.max.y) / 2, (box.min.z + box.max.z) / 2);
+  }
+  return new THREE.Vector3(box.max.x, sumY / count, sumZ / count);
 }

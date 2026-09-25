@@ -14,6 +14,12 @@ export interface WeaponRig {
   readonly group: THREE.Object3D;
   /** Bout du canon : le depart du tir et de l'eclat. */
   readonly muzzle: THREE.Object3D;
+  /**
+   * Vrai si le modele porte deja son propre eclat de tir, comme les MD3 du
+   * moteur d'origine avec leur maillage accroche a tag_flash. Le porte-arme
+   * n'en dessine alors pas un second.
+   */
+  readonly hasOwnFlash?: boolean;
   /** Un coup part. */
   fire(): void;
   /** L'arme est rangee : elle descend hors de l'ecran. */

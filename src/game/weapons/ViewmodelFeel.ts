@@ -112,6 +112,8 @@ export const VIEWMODEL = {
     /** Eclat du depart de coup, et sa duree en secondes. */
     flash: 5,
     flashTime: 0.06,
+    /** Taille de l'eclat dessine, en unites de la scene de l'arme. */
+    flashScale: 7,
   },
 };
 

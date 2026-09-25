@@ -164,6 +164,8 @@ export class WeaponSystem {
       size: definition.flashSize,
       color: definition.color.clone(),
       smoke: definition.kind !== 'beam',
+      // Le porte-arme dessine l'eclat de l'arme qu'on tient, a son canon.
+      flare: !this.firstPerson,
     });
 
     switch (definition.kind) {

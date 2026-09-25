@@ -35,6 +35,8 @@ export class BarrelSpin {
 export class OriginalWeaponRig {
   readonly group = new THREE.Group();
   readonly muzzle = new THREE.Group();
+  /** Les MD3 du jeu portent leur eclat de tir dans le modele lui-meme. */
+  readonly hasOwnFlash = true;
   private readonly barrelMount = new THREE.Group();
   private readonly spin = new BarrelSpin();
   private readonly matrix = new THREE.Matrix4();

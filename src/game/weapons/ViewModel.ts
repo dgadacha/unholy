@@ -102,6 +102,67 @@ interface WeaponModel {
   occupancy?: number;
 }
 
+/**
+ * Image de l'eclat de tir : un coeur blanc, une couronne chaude, et quelques
+ * pointes.
+ *
+ * Elle est dessinee par le code plutot que lue dans un fichier parce qu'elle
+ * doit rester nette a l'ecran : l'eclat occupe un dixieme de l'image a trente
+ * centimetres du canon, et une petite image agrandie d'autant se voit comme un
+ * carre flou. Deux cent cinquante-six pixels suffisent a ce qu'elle tienne.
+ */
+function muzzleFlashTexture(): THREE.Texture {
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext('2d');
+  if (!context) return new THREE.Texture();
+
+  const half = size / 2;
+  context.fillStyle = '#000';
+  context.fillRect(0, 0, size, size);
+
+  // Les pointes d'abord : elles doivent passer sous le coeur, pas dessus.
+  context.globalCompositeOperation = 'lighter';
+  context.translate(half, half);
+  const spikes = 7;
+  for (let i = 0; i < spikes; i++) {
+    const angle = (i / spikes) * Math.PI * 2 + 0.4;
+    const length = half * (0.55 + (i % 3) * 0.15);
+    const width = half * 0.055;
+    context.save();
+    context.rotate(angle);
+    const ray = context.createLinearGradient(0, 0, length, 0);
+    ray.addColorStop(0, 'rgba(255, 236, 190, 0.85)');
+    ray.addColorStop(1, 'rgba(255, 180, 90, 0)');
+    context.fillStyle = ray;
+    context.beginPath();
+    context.moveTo(0, -width);
+    context.lineTo(length, 0);
+    context.lineTo(0, width);
+    context.closePath();
+    context.fill();
+    context.restore();
+  }
+
+  const core = context.createRadialGradient(0, 0, 0, 0, 0, half * 0.62);
+  core.addColorStop(0, 'rgba(255, 255, 255, 1)');
+  core.addColorStop(0.28, 'rgba(255, 244, 214, 0.95)');
+  core.addColorStop(0.55, 'rgba(255, 186, 96, 0.5)');
+  core.addColorStop(1, 'rgba(255, 140, 40, 0)');
+  context.fillStyle = core;
+  context.beginPath();
+  context.arc(0, 0, half * 0.62, 0, Math.PI * 2);
+  context.fill();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.generateMipmaps = false;
+  texture.minFilter = THREE.LinearFilter;
+  return texture;
+}
+
 export class ViewModel {
   /** Scene propre a l'arme : le monde n'y figure pas. */
   readonly scene = new THREE.Scene();
@@ -145,9 +206,32 @@ export class ViewModel {
   /** Age de la respiration, du dernier coup, et l'ecart lateral de son recul. */
   private breathAge = 0;
   private flashAge = 1;
+  /** Taille tiree au hasard pour l'eclat en cours, en part de la normale. */
+  private flashSize = 1;
   private recoilRoll = 0;
   /** Eclat du depart de coup, dans la scene de l'arme. */
   private readonly flashLight = new THREE.PointLight(0xfff0d0, 0, 60, 1.4);
+  /**
+   * L'eclat visible, au bout du canon dessine.
+   *
+   * Il appartient a la scene de l'arme, et non au monde. Le monde en posait
+   * un, a vingt unites devant l'oeil : c'est ou se trouve vraiment le canon,
+   * mais l'arme tenue en main est dessinee par une autre camera, avec son
+   * propre champ de vision. Les deux ne tombaient donc pas au meme endroit a
+   * l'ecran, et l'eclat flottait a cote du canon.
+   */
+  private readonly flashSprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: muzzleFlashTexture(),
+      color: 0xffffff,
+      blending: THREE.AdditiveBlending,
+      transparent: true,
+      depthWrite: false,
+      // Un eclat mi-enfonce dans le canon se decouperait sur lui.
+      depthTest: false,
+      toneMapped: false,
+    }),
+  );
   private readonly localMuzzle = new THREE.Vector3();
   private readonly scratchMatrix = new THREE.Matrix4();
   private readonly scratchPoint = new THREE.Vector3();
@@ -186,6 +270,9 @@ export class ViewModel {
     this.root.add(this.positionAnchor);
     this.scene.add(this.root);
     this.holder.add(this.muzzleAnchor);
+    this.flashSprite.visible = false;
+    this.flashSprite.renderOrder = 10;
+    this.muzzleAnchor.add(this.flashSprite);
 
     /*
      * Eclairage propre a l'arme. La scene du monde n'etant pas rendue ici, le
@@ -463,6 +550,19 @@ export class ViewModel {
     this.recoilRoll = (Math.random() * 2 - 1) * VIEWMODEL.recoil.scatter;
     this.flashLight.color.copy(color).lerp(WHITE, 0.45);
     this.flashAge = 0;
+    /*
+     * L'eclat ne se dessine que si l'arme n'en porte pas deja un : les MD3 du
+     * moteur d'origine ont le leur, accroche a leur repere de canon.
+     */
+    if (!this.current?.rig.hasOwnFlash) {
+      const material = this.flashSprite.material as THREE.SpriteMaterial;
+      material.color.copy(color).lerp(WHITE, 0.6);
+      // Un coup ne ressemble jamais au precedent : l'eclat tourne et change
+      // de taille. Sans cela, la repetition se voit des la deuxieme balle.
+      material.rotation = Math.random() * Math.PI * 2;
+      this.flashSize = 1 - Math.random() * 0.35;
+      this.flashSprite.visible = true;
+    }
   }
 
   /**
@@ -558,6 +658,20 @@ export class ViewModel {
     const life = Math.max(0.001, VIEWMODEL.light.flashTime);
     const part = Math.max(0, 1 - this.flashAge / life);
     this.flashLight.intensity = part * part * VIEWMODEL.light.flash;
+
+    if (this.flashSprite.visible) {
+      /*
+       * L'eclat part a sa pleine taille et s'eteint en grandissant un peu :
+       * c'est ce qui se passe quand les gaz sortent, et c'est ce que l'oeil
+       * attend. L'inverse, un eclat qui grandit depuis rien, se lit comme une
+       * explosion et non comme un depart de coup.
+       */
+      const size = VIEWMODEL.light.flashScale * this.flashSize * (1 + (1 - part) * 0.4);
+      this.flashSprite.scale.set(size, size, size);
+      (this.flashSprite.material as THREE.SpriteMaterial).opacity = part;
+      if (part <= 0) this.flashSprite.visible = false;
+    }
+
     if (part <= 0) this.flashAge = 1;
   }
 

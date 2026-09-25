@@ -17,6 +17,13 @@ export interface MuzzleFlashSpec {
   /** Duree en secondes ; le jeu tient dans une fourchette de 20 a 80 ms. */
   duration?: number;
   smoke?: boolean;
+  /**
+   * Grain lumineux visible. Il se coupe pour l'arme qu'on tient soi-meme :
+   * celle-ci est dessinee par une autre camera, et son eclat est pose au bout
+   * du canon dessine, pas au point ou part la balle dans le monde. La lumiere
+   * et la fumee, elles, restent : elles appartiennent au monde.
+   */
+  flare?: boolean;
 }
 
 export class MuzzleFlashSystem {
@@ -31,7 +38,7 @@ export class MuzzleFlashSystem {
     const duration = spec.duration ?? 0.05;
 
     // Grain lumineux tres vif : il depasse le blanc pour nourrir le halo.
-    this.particles.spawn({
+    if (spec.flare !== false) this.particles.spawn({
       position: spec.position.clone(),
       velocity: spec.direction.clone().multiplyScalar(60),
       size,
