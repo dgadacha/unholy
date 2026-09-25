@@ -35,7 +35,21 @@ export interface FixturePlacement {
   at: [number, number, number];
   /** Longueur voulue, en unites : le modele sort normalise a un. */
   length: number;
+  /** Ce tube eclaire-t-il encore ? */
+  lit: boolean;
 }
+
+/**
+ * Ce qui, dans la carte de couleur, est de la glace et non de la tole.
+ *
+ * Le modele n'a qu'une seule matiere : impossible d'allumer sa glace en
+ * designant une partie du maillage, elle n'existe pas separement. Mais la
+ * glace est la seule chose claire du luminaire, la carcasse etant peinte et
+ * salie. Un seuil sur la clarte suffit donc a la retrouver, et donne la carte
+ * d'emission : le tube s'allume, la tole reste eteinte.
+ */
+const GLASS_FROM = 0.72;
+const GLASS_TO = 0.88;
 
 /**
  * Rassemble les poses, puis les dessine toutes ensemble quand le fichier
@@ -86,33 +100,95 @@ export class Fluorescents {
     geometry.translate(-center.x, -center.y, -center.z);
     if (span > 1e-6) geometry.scale(1 / span, 1 / span, 1 / span);
 
-    const material = Array.isArray(source.material) ? source.material[0] : source.material;
-    const mesh = new THREE.InstancedMesh(geometry, material, this.placements.length);
-    mesh.name = 'fluorescent-fixtures';
+    const first = Array.isArray(source.material) ? source.material[0] : source.material;
+    const base = first as THREE.MeshStandardMaterial;
     /*
-     * Pas d'ombre portee : la reglette est collee au plafond, sa lampe est
-     * dessous, et l'ombre qu'elle jetterait serait celle d'une boite sur une
-     * dalle qu'on ne voit jamais. C'est une carte d'ombre de gagnee.
+     * Le modele sort en metal pur. Une carcasse de luminaire est peinte : a un
+     * metal de un, elle ne renvoie que ce qui l'entoure, c'est-a-dire rien
+     * dans un couloir noir, et le luminaire devient une silhouette bleutee.
      */
-    mesh.castShadow = false;
-    mesh.receiveShadow = true;
-    mesh.frustumCulled = false;
+    base.metalness = 0.15;
 
-    const matrix = new THREE.Matrix4();
-    const position = new THREE.Vector3();
-    const scale = new THREE.Vector3();
-    for (const [index, placement] of this.placements.entries()) {
-      position.set(placement.at[0], placement.at[1], placement.at[2]);
-      scale.setScalar(placement.length);
-      matrix.compose(position, ZERO_TURN, scale);
-      mesh.setMatrixAt(index, matrix);
+    // Un lot par etat : une matiere ne peut pas s'allumer par exemplaire.
+    const lit = base.clone() as THREE.MeshStandardMaterial;
+    lit.emissive = new THREE.Color(0xffe9c8);
+    lit.emissiveIntensity = 1.5;
+    lit.emissiveMap = glassMask(base.map);
+    lit.needsUpdate = true;
+
+    for (const state of [false, true]) {
+      const group = this.placements.filter((placement) => placement.lit === state);
+      if (group.length === 0) continue;
+      const mesh = new THREE.InstancedMesh(geometry, state ? lit : base, group.length);
+      mesh.name = state ? 'fluorescent-lit' : 'fluorescent-dead';
+      /*
+       * Pas d'ombre portee : la reglette est collee au plafond, sa lampe est
+       * dessous, et l'ombre qu'elle jetterait serait celle d'une boite sur une
+       * dalle qu'on ne voit jamais. C'est une carte d'ombre de gagnee.
+       */
+      mesh.castShadow = false;
+      mesh.receiveShadow = true;
+      mesh.frustumCulled = false;
+
+      const matrix = new THREE.Matrix4();
+      const position = new THREE.Vector3();
+      const scale = new THREE.Vector3();
+      for (const [index, placement] of group.entries()) {
+        position.set(placement.at[0], placement.at[1], placement.at[2]);
+        scale.setScalar(placement.length);
+        matrix.compose(position, ZERO_TURN, scale);
+        mesh.setMatrixAt(index, matrix);
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+      this.group.add(mesh);
     }
-    mesh.instanceMatrix.needsUpdate = true;
-    this.group.add(mesh);
   }
 }
 
 const ZERO_TURN = new THREE.Quaternion();
+
+/**
+ * Carte d'emission tiree de la carte de couleur : ne reste que la glace.
+ *
+ * La taille est reduite au passage. Le tube est une plage unie : la lire a
+ * deux mille pixels de cote ne montrerait rien de plus qu'a cinq cents, et
+ * couterait quatre megaoctets de memoire video pour une surface qui, allumee,
+ * est de toute facon saturee.
+ */
+function glassMask(map: THREE.Texture | null): THREE.Texture | null {
+  const image = map?.image as HTMLImageElement | undefined;
+  if (!image) return null;
+
+  const size = 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  if (!context) return null;
+  context.drawImage(image, 0, 0, size, size);
+
+  const pixels = context.getImageData(0, 0, size, size);
+  const data = pixels.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const level = (0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]) / 255;
+    // Passage progressif : un seuil net dessinerait le contour de la glace.
+    const glass = Math.max(0, Math.min(1, (level - GLASS_FROM) / (GLASS_TO - GLASS_FROM)));
+    const value = Math.round(glass * 255);
+    data[i] = value;
+    data[i + 1] = value;
+    data[i + 2] = value;
+    data[i + 3] = 255;
+  }
+  context.putImageData(pixels, 0, 0);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.flipY = map?.flipY ?? true;
+  texture.wrapS = map?.wrapS ?? THREE.ClampToEdgeWrapping;
+  texture.wrapT = map?.wrapT ?? THREE.ClampToEdgeWrapping;
+  texture.needsUpdate = true;
+  return texture;
+}
 
 /** Premier maillage du fichier : ces exports n'en portent qu'un. */
 function findMesh(root: THREE.Object3D): THREE.Mesh | null {

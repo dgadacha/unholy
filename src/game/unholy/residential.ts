@@ -115,18 +115,11 @@ export class Residential {
     for (const x of tubes) {
       const on = x === alive;
       /*
-       * La carcasse vient d'un modele, le diffuseur reste bati par le code :
-       * c'est lui qui doit s'allumer, et le modele n'a qu'une matiere, sans
-       * partie separee pour la glace. Le diffuseur est donc glisse dans la
-       * reglette, un peu en retrait sous elle.
+       * Rien n'est bati ici : la reglette entiere vient du modele, glace
+       * comprise. Un diffuseur ajoute en bloc depassait de la carcasse, et ce
+       * qu'on voyait au plafond etait une plaque blanche de travers.
        */
-      this.fixtures.add({ at: [x, 20, z + 149], length: FIXTURE_LENGTH });
-      this.b.block([x - 32, 12, z + 143.5], [x + 32, 27, z + 146], {
-        kind: 'glow',
-        emissive: on ? '#77887c' : '#1c1f1b',
-        solid: false,
-        shadow: false,
-      });
+      this.fixtures.add({ at: [x, 20, z + 149], length: FIXTURE_LENGTH, lit: on });
       if (!on || !this.visual) continue;
       const light = new THREE.PointLight('#cfe2d6', 62, 380, 1.15);
       light.position.set(x, 20, z + 132);
