@@ -31,6 +31,11 @@ demons, the two teams and the match rules come next.
 *Nothing else lights the weapon. Switch the light off and it goes with the
 room.*
 
+![The rifle shouldered, the sight on the view axis and a red dot on it](docs/visee-epaule.jpg)
+
+*Right button shoulders the rifle. The aiming point is read off the model, not
+set by hand, so another rifle would sit correctly too.*
+
 Underneath is the engine it is built on, brought over whole from the rendering
 work that preceded it: it loads a level, lights it, runs a player and seven
 opponents in it at 125 Hz, and draws the result with a modern pipeline.
