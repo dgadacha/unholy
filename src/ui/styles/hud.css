@@ -91,25 +91,20 @@
   outline: 1px solid rgba(111, 183, 255, 0.4);
 }
 
-/* Panneau : un fond sombre, un filet, et un coin coupe. Jamais d'arrondi. */
+/*
+ * Il n'y a pas de panneau.
+ *
+ * Un cadre sombre a coin coupe, pose sur l'image, dit « interface de jeu » et
+ * rien d'autre : il occupe l'ecran sans rien apprendre, et dans un couloir
+ * noir il se voit plus que ce qu'il contient. Les chiffres tiennent seuls,
+ * detaches par leur ombre portee.
+ *
+ * Le flou de fond disparait avec eux, et avec lui une passe de composition
+ * par panneau a chaque image.
+ */
 .hud-panel {
   position: relative;
-  background: var(--ui-panel);
-  border: var(--ui-line) solid var(--ui-panel-edge);
-  padding: 8px 13px;
-  /*
-   * Le flou derriere le panneau detache les chiffres d'un decor charge. Il
-   * coute cher sur certaines machines : le reglage « flou des panneaux » le
-   * retire sans rien changer d'autre.
-   */
-  backdrop-filter: blur(4px);
-  /* Coin coupe en biais : la silhouette dit industriel sans decoration. */
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
-}
-
-:root[data-hud-blur='false'] .hud-panel {
-  backdrop-filter: none;
-  background: rgba(10, 12, 16, 0.85);
+  padding: 0;
 }
 
 .hud-stat {
@@ -118,34 +113,50 @@
   gap: 10px;
 }
 
+/*
+ * La sante ne se lit que lorsqu'elle manque.
+ *
+ * Le militaire n'a qu'une vie et ne reapparait pas : c'est le seul chiffre de
+ * l'ecran qui decide de quelque chose. Intacte, elle s'efface, parce qu'un
+ * joueur en pleine forme n'a rien a y lire. Entamee, elle se rechauffe ; sous
+ * le quart, elle passe au rouge, grossit et bat. Ce n'est pas une jauge, c'est
+ * un etat.
+ */
 .hud-stat__value {
   font-family: var(--ui-font-data);
-  font-size: 38px;
-  font-weight: 700;
+  font-size: 34px;
+  font-weight: 600;
   line-height: 1;
   font-variant-numeric: tabular-nums;
   color: var(--ui-health);
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+  opacity: 0.55;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 0.9);
+  transition: color var(--ui-slow) ease, opacity var(--ui-slow) ease,
+    font-size var(--ui-slow) ease;
 }
 
 .hud-stat__label {
-  font-size: 11px;
-  letter-spacing: 0.22em;
+  font-size: 9px;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: var(--ui-text-dim);
+  color: var(--ui-text-faint);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.95);
 }
 
 .hud-stat--armor .hud-stat__value {
-  font-size: 25px;
+  font-size: 22px;
   color: var(--ui-armor);
 }
 
 .hud-stat--warning .hud-stat__value {
   color: var(--ui-warning);
+  opacity: 0.92;
 }
 
 .hud-stat--critical .hud-stat__value {
   color: var(--ui-danger);
+  opacity: 1;
+  font-size: 44px;
   animation: hud-pulse 900ms ease-in-out infinite;
 }
 
@@ -181,12 +192,19 @@
 
 .hud-ammo__value {
   font-family: var(--ui-font-data);
-  font-size: 38px;
-  font-weight: 700;
+  font-size: 34px;
+  font-weight: 600;
   line-height: 1;
   font-variant-numeric: tabular-nums;
   color: var(--ui-text);
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+  opacity: 0.55;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 0.9);
+  transition: color var(--ui-normal) ease, opacity var(--ui-normal) ease;
+}
+
+.hud-ammo--low .hud-ammo__value,
+.hud-ammo--empty .hud-ammo__value {
+  opacity: 1;
 }
 
 .hud-ammo--low .hud-ammo__value {
@@ -199,10 +217,11 @@
 }
 
 .hud-ammo__weapon {
-  font-size: 11px;
-  letter-spacing: 0.18em;
+  font-size: 9px;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: var(--ui-text-dim);
+  color: var(--ui-text-faint);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.95);
 }
 
 /* Score et chronometre, en haut a droite. */
@@ -216,11 +235,13 @@
 
 .hud-match__time {
   font-family: var(--ui-font-data);
-  font-size: 24px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
   color: var(--ui-text);
-  letter-spacing: 0.04em;
+  opacity: 0.5;
+  letter-spacing: 0.08em;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.95);
 }
 
 .hud-match__score {
@@ -231,15 +252,18 @@
 
 .hud-match__score b {
   font-family: var(--ui-font-data);
-  font-size: 18px;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--ui-accent);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.95);
 }
 
 .hud-match__label {
   font-size: 9px;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: var(--ui-text-dim);
+  color: var(--ui-text-faint);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.95);
 }
 
 /* Reticule : dessine en filets fins, taille et ecart pilotes par les reglages. */
@@ -299,16 +323,6 @@
   color: var(--ui-text-faint);
 }
 
-/* Vitesse : discrete, sous le centre, pour juger un enchainement de sauts. */
-.hud-speed {
-  font-family: var(--ui-font-data);
-  font-size: 20px;
-  font-variant-numeric: tabular-nums;
-  color: rgba(236, 238, 242, 0.7);
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85);
-  margin-bottom: 6px;
-}
-
 /*
  * Journal des eliminations. Une ligne par frag, en haut a gauche, le nom en
  * clair et le verbe en retrait ; les lignes ou le joueur figure sont plus
@@ -357,10 +371,13 @@
   transform: translate(-50%, -50%);
   min-width: 420px;
   padding: 18px 22px 14px;
-  background: rgba(8, 8, 10, 0.86);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
-  backdrop-filter: blur(6px);
+  /*
+   * Le seul panneau du jeu, parce qu'il remplace la vue au lieu de s'y poser :
+   * on le lit a l'arret, la touche tenue. Il est donc franchement opaque, et
+   * carre comme le reste.
+   */
+  background: rgba(6, 7, 9, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .hud-scoreboard__head {
@@ -440,4 +457,45 @@
   font-family: var(--ui-font-data);
   font-size: 15px;
   color: var(--ui-text-faint);
+}
+
+/*
+ * Voile de blessure.
+ *
+ * Un chiffre qui rougit dans un coin ne se voit pas quand on est en train de
+ * reculer devant quelque chose. Les bords de l'image, eux, se voient sans
+ * qu'on les regarde : c'est la que la blessure se dit. Le voile ne masque
+ * jamais le centre, ou le joueur vise.
+ */
+.hud-veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    radial-gradient(ellipse 78% 68% at 50% 50%, transparent 52%, rgba(74, 6, 8, 0.85) 100%);
+  transition: opacity var(--ui-slow) ease;
+}
+
+.hud-veil--warning {
+  opacity: 0.45;
+}
+
+.hud-veil--critical {
+  opacity: 1;
+  animation: hud-veil-beat 1700ms ease-in-out infinite;
+}
+
+@keyframes hud-veil-beat {
+  0%,
+  100% {
+    opacity: 0.82;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+:root[data-reduced-motion='true'] .hud-veil--critical {
+  animation: none;
 }

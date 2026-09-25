@@ -33,9 +33,8 @@ export class Overlay {
       <div class="hud">
         <div class="stats"></div>
         <div class="hint">
-          Move: W A S D &middot; Jump: space &middot; Crouch: Ctrl<br />
-          Fire: click &middot; Weapons: 1 to 9 and wheel &middot; Settings: G &middot; Night vision: N<br />
-          Look: mouse &middot; Release: Esc &middot; Respawn: R &middot; Menu: M
+          W A S D &middot; click fire &middot; right click aim &middot; F light
+          &middot; N night vision &middot; G settings &middot; M menu
         </div>
       </div>
 

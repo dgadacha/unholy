@@ -82,6 +82,19 @@ export class UIManager {
     this.components.push(component);
   }
 
+  /**
+   * Accroche un composant qui couvre l'ecran entier, sous les zones.
+   *
+   * Les zones sont deplacees et mises a l'echelle : un element fixe pose dans
+   * l'une d'elles se cale sur elle et non sur la fenetre, et un voile plein
+   * ecran s'y reduisait a un rectangle autour du reticule. Une couche se pose
+   * donc a la racine, qui ne bouge pas.
+   */
+  mountLayer(component: UIComponent): void {
+    this.root.insertBefore(component.element, this.root.firstChild);
+    this.components.push(component);
+  }
+
   setHudVisible(visible: boolean): void {
     this.root.classList.toggle('ui--hidden', !visible);
   }

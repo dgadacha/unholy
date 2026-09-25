@@ -1,4 +1,5 @@
 import type { UIComponent, UIManager } from '../core/UIManager';
+import type { UIState } from '../core/UIState';
 import { AmmoPanel } from './AmmoPanel';
 import { Crosshair } from './Crosshair';
 import { MatchPanel } from './MatchPanel';
@@ -11,22 +12,36 @@ import { WeaponBar } from './WeaponBar';
  * Assemble le HUD de jeu. La disposition suit une regle simple : les valeurs
  * vitales aux deux coins du bas, la partie en haut a droite, et le centre
  * laisse libre autour du reticule.
+ *
+ * Ce qui n'est pas la compte autant : ni barre de vie, ni cadre, ni compteur de
+ * vitesse sous le reticule. Un couloir noir ou l'on ecoute avant d'avancer
+ * n'admet pas d'ecran de bord ; ce qui doit se voir, c'est ce qui manque.
  */
-class SpeedReadout implements UIComponent {
-  readonly element: HTMLElement;
-  private last = -1;
 
-  constructor(private readonly manager: UIManager) {
+/**
+ * Voile de blessure au bord de l'image.
+ *
+ * Le chiffre de sante est dans un coin, et un joueur qui recule devant quelque
+ * chose ne regarde pas les coins. Les bords de l'image, eux, se voient sans
+ * qu'on les regarde.
+ */
+class DamageVeil implements UIComponent {
+  readonly element: HTMLElement;
+  private last = '';
+
+  constructor(private readonly state: UIState) {
     this.element = document.createElement('div');
-    this.element.className = 'hud-speed';
-    this.element.textContent = '0';
+    this.element.className = 'hud-veil';
   }
 
   update(): void {
-    const speed = Math.round(this.manager.state.current.speed);
-    if (speed === this.last) return;
-    this.last = speed;
-    this.element.textContent = String(speed);
+    const { healthLevel, player } = this.state.current;
+    // Mort, le voile s'efface : l'ecran de fin prend le relais.
+    const level = player.alive ? healthLevel : 'ok';
+    if (level === this.last) return;
+    this.last = level;
+    this.element.classList.toggle('hud-veil--warning', level === 'warning');
+    this.element.classList.toggle('hud-veil--critical', level === 'critical');
   }
 }
 
@@ -39,7 +54,7 @@ export function createHud(manager: UIManager): Scoreboard {
   manager.mount(new Obituaries(settings, events), 'top-left');
   manager.mount(new Crosshair(settings, events), 'center');
   manager.mount(new WeaponBar(state, settings, events), 'bottom-center');
-  manager.mount(new SpeedReadout(manager), 'bottom-center');
+  manager.mountLayer(new DamageVeil(state));
 
   /*
    * Le tableau des scores est rendu au jeu : il s'ouvre sur une touche tenue

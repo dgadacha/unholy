@@ -295,14 +295,27 @@ button.ghost:hover {
   font-weight: 500;
 }
 
+/*
+ * Rappel des commandes, au bas de l'image et sur une seule ligne.
+ *
+ * Il etait en haut a droite, en trois lignes, exactement la ou le HUD pose le
+ * score et le chronometre : pendant les neuf premieres secondes de chaque
+ * partie, les deux se superposaient. En bas, il n'y a rien avant que le joueur
+ * ne change d'arme, et il s'efface avant.
+ */
 .hint {
   position: absolute;
-  right: 18px;
-  top: 16px;
-  font-size: 11px;
-  color: var(--muted);
-  text-align: right;
-  line-height: 1.7;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  max-width: 92vw;
+  white-space: nowrap;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(236, 238, 242, 0.34);
+  text-align: center;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.95);
 }
 
 .toast {
@@ -312,7 +325,6 @@ button.ghost:hover {
   transform: translateX(-50%);
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 9px;
   padding: 9px 16px;
   font-size: 12px;
   color: var(--text);
