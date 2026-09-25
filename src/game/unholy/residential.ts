@@ -6,7 +6,14 @@ import type { SurfaceKind } from '../../renderer/materials/Procedural';
 /** Residential details share the same collision builder as the architecture. */
 export class Residential {
   readonly signs = new THREE.Group();
-  readonly lamps: { light: THREE.PointLight; phase: number }[] = [];
+  /**
+   * Sources fixes du decor. Chacune porte son intensite de reference et sa
+   * facon de faiblir : une lampe de secours sur batterie s'eteint par a-coups
+   * quand la charge tombe, un tube qui a mal vieilli bat vite, et la plupart
+   * ne font rien. Sans cette distinction, tout le batiment clignotait au meme
+   * rythme, ce qui se lit comme un effet et non comme une panne.
+   */
+  readonly lamps: { light: THREE.PointLight; phase: number; base: number; fault: 'battery' | 'starter' | 'none' }[] = [];
   constructor(private b: BlockBuilder, private visual: boolean) {}
 
   box(a: Vec3, c: Vec3, kind: SurfaceKind = 'wood', tint = '#514032', solid = true): void {
@@ -60,14 +67,15 @@ export class Residential {
       this.box([x - 5, -8, z + 151], [x + 5, 86, z + 160], 'plaster', '#69604f', false);
       this.box([x - 23, 29, z + 153], [x + 23, 43, z + 157], 'metal', '#393b36', false);
     }
-    this.sign(`NIV. 0${floor + 1}`, -70, 87, z + 91, 80, 26);
+    this.sign(floor === 0 ? 'RDC' : `NIV. 0${floor}`, -70, 87, z + 91, 80, 26);
     // Battery-powered wall light: one small pool per floor, with long dark intervals.
     this.b.block([-101, 83, z + 122], [-39, 93, z + 130], { kind: 'glow', emissive: '#829b77', solid: false, shadow: false });
     if (this.visual) {
       const light = new THREE.PointLight('#afbea0', 90, 400, 1);
       light.position.set(-70, 55, z + 115);
-      this.signs.add(light); this.lamps.push({ light, phase: floor * 2.3 });
+      this.signs.add(light); this.lamps.push({ light, phase: floor * 2.3, base: 90, fault: 'battery' });
     }
+    this.neons(floor, z);
     // Ground-floor mailboxes; upper floors retain uncluttered escape routes.
     if (floor === 0) {
       for (let row = 0; row < 2; row++) for (let col = 0; col < 4; col++) {
@@ -76,6 +84,66 @@ export class Residential {
         this.box([x + 5, 73, z + 64 + row * 25], [x + 21, 75, z + 66 + row * 25], 'wood', '#141611', false);
       }
     }
+  }
+
+  /**
+   * Tubes du plafond : un sur trois eclaire encore.
+   *
+   * Le tube vivant change de place d'un etage a l'autre, si bien qu'aucun
+   * etage n'a la meme zone sure ni le meme angle mort, et qu'on ne peut pas
+   * apprendre un seul couloir pour les connaitre tous. Les deux autres
+   * restent en place, eteints : un plafond vide n'aurait pas dit qu'il y avait
+   * eu de la lumiere ici.
+   */
+  neons(floor: number, z: number): void {
+    const tubes = [-540, -40, 520];
+    const alive = tubes[floor % tubes.length];
+    for (const x of tubes) {
+      const on = x === alive;
+      // Boitier, puis le tube lui-meme, en retrait dessous.
+      this.box([x - 62, 4, z + 146], [x + 62, 34, z + 152], 'metal', '#3f423b', false);
+      this.b.block([x - 54, 9, z + 143], [x + 54, 29, z + 146.5], {
+        kind: 'glow',
+        emissive: on ? '#77887c' : '#1c1f1b',
+        solid: false,
+        shadow: false,
+      });
+      if (!on || !this.visual) continue;
+      const light = new THREE.PointLight('#cfe2d6', 62, 380, 1.15);
+      light.position.set(x, 20, z + 132);
+      this.signs.add(light);
+      // Un tube sur deux a un starter fatigue : celui du dernier etage bat.
+      this.lamps.push({
+        light,
+        phase: floor * 1.7,
+        base: 62,
+        fault: floor % 2 === 1 ? 'starter' : 'none',
+      });
+    }
+  }
+
+  /**
+   * Ce que la nuit du dehors laisse entrer par les baies de la cage.
+   *
+   * La cage d'escalier est le seul endroit ou les deux camps se voient sur
+   * toute la hauteur, et c'est aussi un vide ou l'on tombe. Noire, elle ne
+   * s'annonce pas : on y entre et on chute. Cette lueur froide ne montre rien
+   * de plus qu'elle-meme, les nez de marches et le bord du vide, ce qui suffit
+   * a comprendre qu'il y a un trou avant d'y etre.
+   *
+   * Elle ne clignote pas : ce n'est pas une lampe, c'est le ciel.
+   */
+  stairWindows(z: number): void {
+    if (!this.visual) return;
+    /*
+     * Mille huit cents candelas pour une lueur : les unites du moteur sont
+     * physiques, et une lampe de couloir en vaut deja quatre-vingt-dix a un
+     * metre. Ici la source est le ciel derriere une baie, a plusieurs metres
+     * des marches qu'elle doit dessiner, et la decroissance mange le reste.
+     */
+    const light = new THREE.PointLight('#5a7ea8', 1800, 900, 1.25);
+    light.position.set(-560, -640, z + 96);
+    this.signs.add(light);
   }
 
   apartment(x0: number, x1: number, z: number, floor: number): void {

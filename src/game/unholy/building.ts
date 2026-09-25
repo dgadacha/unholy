@@ -31,6 +31,18 @@ import type { Level, SpawnPoint } from '../level';
  * Les demons utilisent les murs, les plafonds et le vide de la cage.
  */
 
+/**
+ * Plancher de lumiere : la part plate, et celle du ciel et du sol.
+ *
+ * Reglees en regardant l'image, et non en lisant des niveaux : les releves
+ * ponctuels tombaient sur des coins sombres et annoncaient une image deux fois
+ * plus claire qu'elle ne l'etait. Au double de ces valeurs, le couloir
+ * ressemble a un bureau mal eclaire ; a la moitie, seul le rond de la lampe de
+ * secours existe et le reste redevient un ecran eteint.
+ */
+const AMBIENT_FLOOR = 20;
+const SKY_FLOOR = 26;
+
 /** Hauteur d'un etage, du sol au sol suivant. */
 const PITCH = 192;
 /** Epaisseur des dalles et des cloisons. */
@@ -355,6 +367,7 @@ export function buildBuilding(visual = true): Level {
   for (let floor = 0; floor < FLOORS; floor++) {
     const z = b.floorZ(floor);
     b.windowWall('x', X0 - SLAB, STAIR_X1, Y0 - SLAB, Y0, z, ROOM, [-660, -460], 96);
+    decor.stairWindows(z);
     // Spandrel between the stairwell windows; no floor across the vertical void.
     b.wall(X0 - SLAB, STAIR_X1, Y0 - SLAB, Y0, z + ROOM, SLAB, CONCRETE);
 
@@ -424,16 +437,25 @@ export function buildBuilding(visual = true): Level {
   });
 
   /*
-   * Lumiere. Le courant est coupe : pas de soleil, pas de plafonnier, une
-   * ambiante juste assez haute pour que le noir ne soit pas un ecran eteint.
-   * Tout le reste vient des lampes des militaires et des projecteurs dehors.
+   * Lumiere.
+   *
+   * L'alimentation est defaillante, pas coupee. La difference tient en une
+   * phrase : sans lampe on doit distinguer les volumes, avec la lampe les
+   * details, et jamais l'inverse. Une ambiante a zero donnait un couloir ou
+   * un mur, une porte et un plafond se valaient tous les trois, et une mort
+   * venue du plafond y paraissait injuste plutot qu'effrayante.
+   *
+   * Le plancher vient donc surtout du ciel et du sol, et non d'une ambiante
+   * plate : une lumiere d'hemisphere eclaire selon l'orientation de la
+   * surface, si bien qu'un plafond, un mur et un plancher ne rendent pas le
+   * meme niveau. C'est cette difference, et non la clarte, qui fait lire
+   * l'architecture. La part plate reste tres basse, juste de quoi qu'une
+   * surface verticale ne tombe pas a zero.
    */
   const root = builder.build();
   root.add(decor.signs);
-  root.add(new THREE.AmbientLight(new THREE.Color('#0a0d12'), Math.PI * 0.35));
-  root.add(
-    new THREE.HemisphereLight(new THREE.Color('#12202e'), new THREE.Color('#05060a'), Math.PI * 0.18),
-  );
+  root.add(new THREE.AmbientLight(new THREE.Color('#16242f'), AMBIENT_FLOOR));
+  root.add(new THREE.HemisphereLight(new THREE.Color('#16242f'), new THREE.Color('#15110c'), SKY_FLOOR));
 
   /*
    * Projecteurs des helicopteres. Deux faisceaux tournent autour du batiment,
@@ -452,9 +474,17 @@ export function buildBuilding(visual = true): Level {
 
   const animated: Level['animated'] = [
     (time) => {
-      for (const { light, phase } of decor.lamps) {
-        const cycle = (time + phase) % 13;
-        light.intensity = cycle > 10 ? (Math.sin(time * 37 + phase) > 0.15 ? 65 : 3) : 90;
+      for (const { light, phase, base, fault } of decor.lamps) {
+        if (fault === 'none') continue;
+        if (fault === 'battery') {
+          // Batterie a bout : de longues minutes franches, puis des a-coups.
+          const cycle = (time + phase) % 13;
+          light.intensity = cycle > 10 ? (Math.sin(time * 37 + phase) > 0.15 ? base * 0.72 : base * 0.03) : base;
+          continue;
+        }
+        // Starter fatigue : il bat vite et se rallume mal, sans jamais mourir.
+        const beat = Math.sin(time * 21 + phase) * Math.sin(time * 6.3 + phase * 2);
+        light.intensity = beat > -0.25 ? base : base * (0.08 + Math.random() * 0.2);
       }
       for (const entry of searchlights) {
         const angle = entry.phase + time * entry.speed;
