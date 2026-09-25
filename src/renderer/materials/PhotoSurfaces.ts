@@ -61,15 +61,17 @@ const ROUGHNESS: Record<string, [number, number]> = {
  * Combien de fois l'image se repete sur la surface que couvrait une texture
  * peinte par le code.
  *
- * Les images n'ont pas toutes la meme emprise reelle : celle du sol porte
- * seize carreaux, celle du plafond neuf dalles, celle du mur n'a pas de motif
- * du tout. Sans ce reglage, le carrelage sortait a un metre de cote et le
- * faux plafond a trois metres.
+ * Les images n'ont pas toutes la meme emprise reelle : celle du sol porte neuf
+ * carreaux, celle du plafond neuf dalles, celle du mur n'a pas de motif du
+ * tout. Sans ce reglage, le carrelage sortait a un metre de cote et le faux
+ * plafond a trois metres. Ce chiffre suit donc l'image : changer le carrelage
+ * pour un autre qui ne porte pas le meme nombre de carreaux change la taille
+ * des carreaux au sol, et c'est ici qu'on la rattrape.
  */
 const REPEAT: Record<string, number> = {
   plaster: 0.8,
-  tile: 1.6,
-  floor: 1.6,
+  tile: 2.1,
+  floor: 2.1,
   ceiling: 1.2,
   glass: 0.5,
 };
@@ -90,8 +92,8 @@ export function photoRepeat(kind: string): number {
  */
 const LEVEL: Record<string, number> = {
   plaster: 0.6,
-  tile: 0.25,
-  floor: 0.25,
+  tile: 0.63,
+  floor: 0.63,
   ceiling: 0.64,
   glass: 0.13,
 };
