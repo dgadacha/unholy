@@ -11,6 +11,7 @@ import { REFERENCE_WEAPON_FOV, weaponPreset, type WeaponViewmodelPreset } from '
 import { GlbWeaponRig } from './GlbWeaponRig';
 import { VIEW_MODEL_OVERRIDES } from './ViewModelOverrides';
 import type { WeaponRig } from './WeaponRig';
+import { VIEWMODEL, VIEWMODEL_SWITCHES } from './ViewmodelFeel';
 
 /** Vue des armes MD3 originales. Les tags _hand pilotent poses et placement.
  * La scene separee empeche le decor de couper l'arme au premier plan.
@@ -57,6 +58,29 @@ export interface ViewModelEnvironment {
   direction: THREE.Vector3;
 }
 
+/**
+ * Ce que le lieu fait a l'arme, dans un decor sans courant.
+ *
+ * Les cartes du moteur d'origine portent une grille d'eclairage : on y lit ce
+ * qui tombe sur l'arme et tout est dit. Un immeuble bati par le code n'en a
+ * pas, et il faut donc decrire la meme chose autrement : ce que la lampe
+ * renvoie de la surface visee, et ce que la source la plus proche ajoute.
+ */
+export interface DarkEnvironment {
+  /** Teinte generale du lieu. */
+  ambient: THREE.Color;
+  /** Lampe tactique allumee, de zero a un. */
+  beam: number;
+  /** Part du faisceau qui revient : un contre un mur, zero dans le vide. */
+  bounce: number;
+  /** Couleur de la source du lieu la plus forte, vue d'ici. */
+  source: THREE.Color;
+  /** Sa force, deja fondue avec la distance, de zero a un. */
+  sourceStrength: number;
+  /** D'ou elle vient, dans le repere de la camera. */
+  sourceDirection: THREE.Vector3;
+}
+
 interface WeaponModel {
   group: THREE.Object3D;
   md3: Md3Mesh | null;
@@ -101,6 +125,12 @@ export class ViewModel {
   private readonly ambientLight = new THREE.AmbientLight(0xffffff, 1.1);
   private readonly keyLight = new THREE.DirectionalLight(0xfff0dd, 2.2);
   private readonly fillLight = new THREE.DirectionalLight(0x9fc4ff, 0.8);
+  /**
+   * Ce que le lieu pose sur l'arme : lampe de secours, veilleuse, projecteur
+   * qui passe a la fenetre. Elle ne porte pas d'ombre, et la scene de l'arme
+   * compte moins de mille sommets : elle ne coute rien.
+   */
+  private readonly roomLight = new THREE.DirectionalLight(0xffffff, 0);
 
   private readonly cache = new Map<WeaponId, WeaponModel | null>();
   private current: WeaponModel | null = null;
@@ -112,6 +142,12 @@ export class ViewModel {
   private settings: ViewModelSettings = { ...DEFAULT_VIEW_MODEL_SETTINGS };
   private aspect = 16 / 9;
   private readonly restPosition = new THREE.Vector3();
+  /** Age de la respiration, du dernier coup, et l'ecart lateral de son recul. */
+  private breathAge = 0;
+  private flashAge = 1;
+  private recoilRoll = 0;
+  /** Eclat du depart de coup, dans la scene de l'arme. */
+  private readonly flashLight = new THREE.PointLight(0xfff0d0, 0, 60, 1.4);
   private readonly localMuzzle = new THREE.Vector3();
   private readonly scratchMatrix = new THREE.Matrix4();
   private readonly scratchPoint = new THREE.Vector3();
@@ -160,7 +196,10 @@ export class ViewModel {
      */
     this.keyLight.position.set(-0.4, 1, 0.6);
     this.fillLight.position.set(0.8, -0.2, -0.6);
-    this.scene.add(this.ambientLight, this.keyLight, this.fillLight);
+    this.scene.add(this.ambientLight, this.keyLight, this.fillLight, this.roomLight);
+    // L'eclat du tir part du canon : il est accroche au porte-arme.
+    this.flashLight.position.set(0, 0.3, 1.2);
+    this.holder.add(this.flashLight);
 
     this.applySettings(this.settings);
   }
@@ -226,22 +265,41 @@ export class ViewModel {
    * rien. Lampe eteinte, l'arme doit devenir une silhouette : c'est la
    * contrepartie de se cacher.
    */
-  setDarkEnvironment(ambient: THREE.Color, beam: number): void {
-    const room = luminance(ambient);
+  setDarkEnvironment(room: DarkEnvironment): void {
+    const ambient = luminance(room.ambient);
+    const light = VIEWMODEL.light;
 
-    this.ambientLight.color.copy(ambient).lerp(WHITE, 0.4);
-    this.ambientLight.intensity = 0.1 + room * 1.2;
+    this.ambientLight.color.copy(room.ambient).lerp(WHITE, 0.4);
+    this.ambientLight.intensity = light.fill + ambient * 1.2;
 
     /*
      * La lampe est vissee sous le canon : sa lumiere part vers l'avant et n'en
      * revient qu'en frisant le modele. Le point est donc place devant et sous
      * l'arme, pas au-dessus comme une lumiere de studio.
+     *
+     * Ce qui revient depend de ce que le faisceau touche. Une cloison a bout
+     * portant renvoie assez pour detacher la carcasse et l'optique ; un
+     * couloir ouvert ne renvoie rien, et l'arme redevient une silhouette. Sans
+     * cette part, l'eclairage de l'arme est le meme partout, et c'est
+     * exactement ce qui la fait lire comme une image collee devant la camera.
      */
     this.keyLight.color.copy(WHITE);
-    this.keyLight.intensity = beam * 2.4;
+    this.keyLight.intensity = room.beam * light.beam * (0.25 + room.bounce * 0.75);
     this.keyLight.position.set(0.15, -0.5, 1);
 
-    this.fillLight.intensity = 0.04 + beam * 0.3;
+    /*
+     * Les sources du lieu : une lampe de secours au bout du couloir pose un
+     * bord colore sur le cote de l'arme, et clignote avec elle. C'est le seul
+     * eclairage de l'arme que le joueur peut relier a quelque chose qu'il voit,
+     * donc celui qui dit le plus fort que l'arme est dans la piece.
+     */
+    this.roomLight.color.copy(room.source);
+    this.roomLight.intensity = room.sourceStrength * light.world;
+    if (room.sourceDirection.lengthSq() > 1e-6) {
+      this.roomLight.position.copy(room.sourceDirection).normalize();
+    }
+
+    this.fillLight.intensity = 0.04 + room.beam * 0.3;
   }
 
   /** Champ de vision applique : reglage du joueur, ecarte par l'arme. */
@@ -256,10 +314,12 @@ export class ViewModel {
     // Les tags _hand contiennent deja la position et l'echelle d'origine.
     const side = this.settings.side;
     this.restPosition.set(this.settings.trimX * 10, this.settings.trimY * 10, 0);
+    // Le decalage du mode centre appartient a la pose de repos : la
+    // respiration repart de celle-ci a chaque image, et l'ecraserait sinon.
+    if (side === 'center') this.restPosition.x -= 3;
     this.positionAnchor.position.copy(this.restPosition);
     this.holder.quaternion.copy(this.holderBase);
     this.holder.scale.set(1, side === 'left' ? -1 : 1, 1);
-    if (side === 'center') this.positionAnchor.position.x -= 3;
   }
 
   /**
@@ -397,20 +457,108 @@ export class ViewModel {
   }
 
   /** Lance les poses et le flash MD3 du tir. */
-  fire(_color: THREE.Color, _ejects: boolean): void {
+  fire(color: THREE.Color, _ejects: boolean): void {
     this.current?.rig.fire();
+    // Un ecart lateral tire au hasard : deux coups ne reculent jamais pareil.
+    this.recoilRoll = (Math.random() * 2 - 1) * VIEWMODEL.recoil.scatter;
+    this.flashLight.color.copy(color).lerp(WHITE, 0.45);
+    this.flashAge = 0;
   }
 
   /**
-   * Applique les mouvements, chacun sur son point d'accroche et pondere par
-   * l'arme : une mitrailleuse ne bouge pas comme un lance-roquettes.
+   * Applique les mouvements, chacun sur son point d'accroche.
+   *
+   * C'est ici que l'arme cesse d'etre une image collee devant l'oeil. Le
+   * moteur calcule deja tout ce qu'il faut : l'ecart de regard amorti, le
+   * balancement lie a la distance parcourue, le ressort du recul, la
+   * reception d'une chute. Rien de cela n'etait applique, et une arme
+   * parfaitement immobile par rapport a la camera se lit comme une decalcomanie
+   * quelle que soit la qualite de son modele.
+   *
+   * Les mouvements se cumulent sur des points differents, du plus lent au plus
+   * vif, pour qu'aucun n'annule les autres : la respiration porte le
+   * balancement, qui porte l'inertie du regard, qui porte le recul.
    */
   update(motion: ViewmodelMotion, delta = 0): void {
     this.root.visible = this.settings.visible;
     this.current?.rig.update(delta);
-    // Les poses de recul viennent du MD3 _hand. Aucun recul/sway moderne ajoute.
-    this.bobAnchor.rotation.set(motion.bob.y * 0.3, motion.bob.x * 0.3, motion.bob.roll * 0.3);
+    this.breathAge += delta;
+
+    const feel = VIEWMODEL;
+    const on = VIEWMODEL_SWITCHES;
+
+    // Reception d'une chute : la seule chose qui descende vraiment l'arme.
     this.landingAnchor.position.y = motion.landing * 6;
+
+    /*
+     * Respiration. Deux periodes lentes et sans rapport simple entre elles :
+     * additionnees, elles ne se repetent pas a l'oreille, et le mouvement ne
+     * devient jamais une horloge. Elle s'efface des que le joueur marche, le
+     * balancement prenant le relais.
+     */
+    const still = 1 - Math.min(1, Math.abs(motion.bob.y) / 0.004);
+    const breath = on.breath ? feel.breath.amount * still : 0;
+    const slow = Math.sin((this.breathAge / feel.breath.slow) * Math.PI * 2);
+    const fast = Math.sin((this.breathAge / feel.breath.fast) * Math.PI * 2 + 1.3);
+    this.positionAnchor.position.set(
+      this.restPosition.x + breath * fast * 0.6,
+      this.restPosition.y + breath * slow,
+      this.restPosition.z,
+    );
+    this.positionAnchor.rotation.set(0, 0, on.breath ? slow * feel.breath.turn * still : 0);
+
+    // Balancement de la marche : un decalage et un roulis, pas une houle.
+    const bob = on.bob ? 1 : 0;
+    this.bobAnchor.position.set(0, motion.bob.x * feel.bob.shift * bob, motion.bob.y * feel.bob.lift * bob);
+    this.bobAnchor.rotation.set(motion.bob.roll * feel.bob.roll * bob, 0, 0);
+
+    /*
+     * Inertie du regard. L'arme part dans le sens du mouvement de la vue puis
+     * revient : c'est ce qui donne une masse. Les bornes evitent qu'un
+     * mouvement de souris brusque ne la sorte du cadre.
+     */
+    const sway = on.sway ? 1 : 0;
+    const shift = clamp(motion.sway.x * feel.sway.shift * sway, -feel.sway.maxShift, feel.sway.maxShift);
+    const lift = clamp(motion.sway.y * feel.sway.lift * sway, -feel.sway.maxShift, feel.sway.maxShift);
+    this.swayAnchor.position.set(0, shift, lift);
+    this.swayAnchor.rotation.set(
+      0,
+      clamp(-motion.sway.pitch * feel.sway.pitch * sway, -feel.sway.maxTurn, feel.sway.maxTurn),
+      clamp(motion.sway.yaw * feel.sway.yaw * sway, -feel.sway.maxTurn, feel.sway.maxTurn),
+    );
+
+    /*
+     * Recul. Il est plus ample que celui de la camera : l'arme peut reagir
+     * franchement sans rendre la visee incontrolable, et c'est justement ce
+     * decalage qui la rend physique.
+     */
+    const kick = on.recoil ? 1 : 0;
+    this.recoilAnchor.position.set(
+      -motion.recoil.back * feel.recoil.back * kick,
+      0,
+      motion.recoil.up * feel.recoil.lift * kick,
+    );
+    this.recoilAnchor.rotation.set(
+      this.recoilRoll * motion.recoil.back * kick,
+      -motion.recoil.pitch * feel.recoil.pitch * kick,
+      0,
+    );
+
+    this.updateFlash(delta);
+  }
+
+  /**
+   * Eclat du depart de coup. Il ne dure que quelques images, et c'est sa
+   * brievete qui le rend violent : le temps d'un eclair, les matieres de
+   * l'arme se lisent, puis le noir revient.
+   */
+  private updateFlash(delta: number): void {
+    if (this.flashAge >= 1) return;
+    this.flashAge += delta;
+    const life = Math.max(0.001, VIEWMODEL.light.flashTime);
+    const part = Math.max(0, 1 - this.flashAge / life);
+    this.flashLight.intensity = part * part * VIEWMODEL.light.flash;
+    if (part <= 0) this.flashAge = 1;
   }
 
   /** Point du canon, en coordonnees du monde de l'arme. */

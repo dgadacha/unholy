@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { loadOverride, type ViewModelOverride } from './ViewModelOverrides';
 import type { WeaponRig } from './WeaponRig';
+import { VIEWMODEL } from './ViewmodelFeel';
 
 /**
  * Arme tenue en main venant d'un modele exporte, et non des archives du jeu.
@@ -15,34 +16,17 @@ import type { WeaponRig } from './WeaponRig';
  * axe du canon, sens du canon, verticale. Cette classe ne fait que l'animer.
  */
 
-/*
+/**
  * Prise en main.
  *
  * Les armes du moteur d'origine portent leur place et leur echelle dans le tag
  * d'une main MD3 : le porte-arme les prend telles quelles. Un modele exporte
  * n'a rien de tel, et arrive normalise a une unite de long, centre sur son
- * origine, donc pose exactement sur l'oeil. Ces valeurs sont sa main : la
- * longueur qu'on lui donne dans le monde, et le point ou on la tient, en avant,
- * a droite et en bas du regard.
+ * origine, donc pose exactement sur l'oeil. Il lui faut donc une main, et
+ * c'est celle du porte-arme, reglee avec le reste de ce qu'on ressent de
+ * l'arme. Le nom reste exporte pour la poignee de mise au point.
  */
-/**
- * Vue FPS depuis l'epaule : le centre du fusil reste proche de l'oeil,
- * sans lacet de presentation. La crosse est derriere le cadrage et le
- * boitier rejoint le bord inferieur ; seuls l'optique et l'avant sont exposes.
- * Valide visuellement dans building-preview, avec le recul actif.
- */
-export const RIFLE_HOLD = {
-  /** Longueur de l'arme dans le monde, en unites de carte. */
-  length: 26,
-  /** Distance devant l'oeil du centre de l'arme. */
-  forward: 9,
-  /** Decalage a droite, et vers le bas. */
-  right: 4,
-  down: 7,
-  /** Ouverture vers l'interieur, en degres, et inclinaison. */
-  yaw: 0,
-  roll: 0,
-};
+export const RIFLE_HOLD = VIEWMODEL.hold;
 
 /** Recul d'un coup : retrait le long du canon, en fraction de la longueur. */
 const KICK_BACK = 0.035;

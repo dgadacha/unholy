@@ -18,10 +18,34 @@ import { Flashlight } from './light/Flashlight';
 
 /** Decor sans ambiante declaree : le noir. */
 const BLACK = new THREE.Color(0x000000);
+
+/*
+ * Ce que le lieu renvoie sur l'arme, dans un decor bati par le code.
+ *
+ * La portee est celle a laquelle une surface eclairee renvoie encore quelque
+ * chose sur le modele tenu en main : environ sept metres, soit la longueur
+ * d'un couloir eclaire par la lampe. Au-dela il ne revient plus rien, et
+ * l'arme redevient une silhouette. Plus court, elle s'eteignait des qu'on
+ * marchait au lieu de coller son canon au mur ; plus long, son eclairage
+ * redevenait le meme partout, ce qu'on cherche justement a lui enlever.
+ */
+const BOUNCE_RANGE = 300;
+/** Vitesse a laquelle ce retour suit la vue, en fractions par seconde. */
+const BOUNCE_FOLLOW = 9;
+/** Trajet sans volume : on mesure une distance, pas le passage d'un corps. */
+const ZERO_HULL: Vec3 = [0, 0, 0];
+/**
+ * Facteur de la source du lieu. Cale sur les lampes de secours de l'immeuble :
+ * a quelques metres, elles posent un bord colore sur le cote de l'arme, et de
+ * l'autre bout du couloir elles ne font plus rien.
+ */
+const SOURCE_GAIN = 900;
+const BOUNCE_END = new THREE.Vector3();
+const SOURCE_POSITION = new THREE.Vector3();
 import type { UIManager } from '../ui/core/UIManager';
 import { ReflectionProbeManager } from '../renderer/lighting/ReflectionProbeManager';
 import { FPSCameraEffects } from '../camera/FPSCameraEffects';
-import { ViewModel, type ViewModelSettings } from './weapons/ViewModel';
+import { ViewModel, type ViewModelSettings, type DarkEnvironment } from './weapons/ViewModel';
 import { weaponPreset } from './weapons/WeaponPreset';
 import type { WeaponId } from './weapons/WeaponDefs';
 import type { GridSample } from '../bsp/LightGrid';
@@ -175,6 +199,21 @@ export class Session {
     direction: new THREE.Vector3(0, 0, 1),
   };
   private readonly viewRotation = new THREE.Quaternion();
+  /**
+   * Eclairage de l'arme dans un decor sans grille : il est garde d'une image a
+   * l'autre parce que le retour du faisceau s'y lisse, et qu'un objet neuf par
+   * image empecherait ce lissage.
+   */
+  private readonly dark: DarkEnvironment = {
+    ambient: BLACK,
+    beam: 0,
+    bounce: 0,
+    source: new THREE.Color(),
+    sourceStrength: 0,
+    sourceDirection: new THREE.Vector3(0, 0, 1),
+  };
+  /** Sources fixes du niveau : lampes de secours, veilleuses, enseignes. */
+  private readonly roomLights: THREE.PointLight[] = [];
   private readonly lightDirection = new THREE.Vector3();
   private readonly fogLinear = new THREE.Fog(0x0d1015, 2000, 8000);
   private readonly fogExponential = new THREE.FogExp2(0x0d1015, 0.0004);
@@ -331,6 +370,17 @@ export class Session {
      */
     this.flashlight.attach(this.scene);
     this.flashlight.setEnabled(level.darkness === true);
+
+    /*
+     * Sources fixes du niveau, relevees une fois : ce sont elles qui posent
+     * une couleur sur l'arme quand on passe dessous. Les parcourir a chaque
+     * image reviendrait a traverser tout le decor pour trouver une poignee de
+     * lampes qui ne bougent pas.
+     */
+    this.roomLights.length = 0;
+    level.root.traverse((object) => {
+      if (object instanceof THREE.PointLight) this.roomLights.push(object);
+    });
     this.scene.background = level.sky ?? level.skyColor;
     // Le brouillard est calcule sur l'image finie, pas par materiau.
     this.scene.fog = null;
@@ -624,7 +674,7 @@ export class Session {
    * ramenee dans le repere de la vue, seul repere que connait la scene de
    * l'arme.
    */
-  private updateWeaponLighting(): void {
+  private updateWeaponLighting(delta: number): void {
     if (!this.viewModel) return;
     const grid = this.level?.grid;
     /*
@@ -634,8 +684,10 @@ export class Session {
      * et la piece n'y ajoute presque rien.
      */
     if (!grid) {
-      const ambient = this.level?.ambient ?? BLACK;
-      this.viewModel.setDarkEnvironment(ambient, this.flashlight.on ? 1 : 0);
+      this.dark.ambient = this.level?.ambient ?? BLACK;
+      this.dark.beam = this.flashlight.on ? 1 : 0;
+      this.sampleDarkRoom(delta);
+      this.viewModel.setDarkEnvironment(this.dark);
       return;
     }
     grid.sample([this.eye.x, this.eye.y, this.eye.z], this.gridSample);
@@ -647,6 +699,74 @@ export class Session {
       directional: this.gridSample.directional,
       direction: this.lightDirection,
     });
+  }
+
+  /**
+   * Mesure ce que le lieu pose sur l'arme, la ou il n'y a pas de grille
+   * d'eclairage : ce que le faisceau renvoie, et la source la plus forte.
+   *
+   * Les deux sont lisses dans le temps, mais pas de la meme facon. Le retour
+   * du faisceau doit suivre le pas sans sauter d'une image a l'autre quand on
+   * longe une porte ouverte ; le clignotement d'un neon, lui, doit rester net,
+   * parce que c'est justement ce qu'on veut voir sur l'arme.
+   */
+  private sampleDarkRoom(delta: number): void {
+    const dark = this.dark;
+
+    // Ce que la lampe renvoie : distance a la surface visee, devant l'arme.
+    let bounce = 0;
+    if (dark.beam > 0 && this.level) {
+      this.camera.getWorldDirection(this.aimDirection);
+      BOUNCE_END.copy(this.eye).addScaledVector(this.aimDirection, BOUNCE_RANGE);
+      const hit = this.level.collision.trace(
+        [this.eye.x, this.eye.y, this.eye.z],
+        [BOUNCE_END.x, BOUNCE_END.y, BOUNCE_END.z],
+        ZERO_HULL,
+        ZERO_HULL,
+        Contents.SOLID,
+      );
+      // La fraction rendue par la trace est deja la distance voulue, en part
+      // de la portee : proche de zero contre un mur, un dans le vide.
+      bounce = 1 - Math.min(1, hit.fraction);
+    }
+    const follow = Math.min(1, delta * BOUNCE_FOLLOW);
+    dark.bounce += (bounce - dark.bounce) * follow;
+
+    // La source du lieu la plus forte vue d'ici : la plus proche l'emporte
+    // rarement seule, une lampe vive un peu plus loin compte davantage.
+    let best: THREE.PointLight | null = null;
+    let bestWeight = 0;
+    for (const lamp of this.roomLights) {
+      if (lamp.intensity <= 0) continue;
+      const distance = lamp.getWorldPosition(SOURCE_POSITION).distanceTo(this.eye);
+      const weight = lamp.intensity / (distance * distance + 1);
+      if (weight > bestWeight) {
+        bestWeight = weight;
+        best = lamp;
+      }
+    }
+
+    if (!best) {
+      dark.sourceStrength = 0;
+      return;
+    }
+
+    best.getWorldPosition(SOURCE_POSITION);
+    dark.source.copy(best.color);
+    /*
+     * La force est prise telle quelle, sans lissage : une lampe de secours qui
+     * clignote doit clignoter sur l'arme. Le facteur ramene simplement le
+     * poids mesure dans un intervalle ou une lampe de couloir donne un bord
+     * visible sans eclairer la piece.
+     */
+    dark.sourceStrength = Math.min(1, bestWeight * SOURCE_GAIN);
+    this.camera.getWorldQuaternion(this.viewRotation);
+    this.viewRotation.invert();
+    dark.sourceDirection
+      .copy(SOURCE_POSITION)
+      .sub(this.eye)
+      .applyQuaternion(this.viewRotation)
+      .normalize();
   }
 
   /**
@@ -1229,7 +1349,7 @@ export class Session {
       this.camera.updateProjectionMatrix();
     }
     this.viewModel?.update(viewEffects.motion, delta);
-    this.updateWeaponLighting();
+    this.updateWeaponLighting(delta);
     void this.viewModel?.setWeapon(this.weapons.currentId);
 
     this.eye.set(x, y, z + this.state.viewHeight + bob + viewEffects.viewOffset - stepLag);
