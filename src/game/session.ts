@@ -1124,6 +1124,11 @@ export class Session {
     return channel;
   }
 
+  /** Epaule l'arme, ou la redescend : le bouton droit, et la mise au point. */
+  setAiming(on: boolean): void {
+    this.viewModel?.setAiming(on);
+  }
+
   /** Ou l'arme se trouve a l'ecran, pour regler sa place sur des nombres. */
   measureViewModel(): ReturnType<ViewModel['measure']> {
     return this.viewModel?.measure() ?? null;

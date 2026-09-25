@@ -100,6 +100,35 @@ session.onStats = (stats) => overlay.updateStats(stats);
     await session.reloadWeapon();
     return { prise: { ...RIFLE_HOLD }, mesure: session.measureViewModel() };
   },
+  /**
+   * Reglages du porte-arme : prise en main, inertie, balancement, respiration,
+   * recul, eclairage, visee. Sans argument, rend ce qui est en place.
+   *
+   * Les valeurs sont prises a chaque image : les changer se voit aussitot,
+   * sans recharger. C'est ainsi qu'elles ont toutes ete reglees.
+   */
+  feel: async (patch: Record<string, Record<string, number>> = {}) => {
+    const { VIEWMODEL } = await import('./game/weapons/ViewmodelFeel');
+    for (const [group, values] of Object.entries(patch)) {
+      Object.assign(VIEWMODEL[group as keyof typeof VIEWMODEL], values);
+    }
+    if (Object.keys(patch).length > 0) await session.reloadWeapon();
+    return VIEWMODEL;
+  },
+  /**
+   * Interrupteurs des effets de l'arme : inertie, balancement, respiration,
+   * recul, eclairage. Couper un effet a la fois est la seule facon de savoir
+   * lequel produit ce qu'on voit.
+   */
+  effets: async (patch: Record<string, boolean> = {}) => {
+    const { VIEWMODEL_SWITCHES } = await import('./game/weapons/ViewmodelFeel');
+    return Object.assign(VIEWMODEL_SWITCHES, patch);
+  },
+  /** Epaule l'arme, ou la redescend, sans tenir le bouton. */
+  viser: (on = true) => {
+    session.setAiming(on);
+    return on;
+  },
   /** Allume ou eteint la lampe tactique. */
   lamp: () => session.flashlight.toggle(),
   /** Puissance du faisceau, pour le regler. */
