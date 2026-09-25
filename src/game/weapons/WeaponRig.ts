@@ -27,5 +27,9 @@ export interface WeaponRig {
   /** L'arme est reprise en main, a sa pose de repos. */
   reset(): void;
   update(delta: number): void;
+  /** L'arme est epaulee, de zero a un. Toutes ne savent pas le faire. */
+  setAim?(amount: number): void;
+  /** Centre de la fenetre de l'optique, pour y poser le point rouge. */
+  readonly sightPoint?: THREE.Vector3;
   dispose?(): void;
 }

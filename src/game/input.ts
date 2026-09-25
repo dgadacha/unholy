@@ -14,6 +14,8 @@ export class Input {
   sensitivity = 0.0022;
   invertY = false;
   onFire: ((held: boolean) => void) | null = null;
+  /** Visee : l'arme s'epaule tant que le bouton droit est tenu. */
+  onAim: ((held: boolean) => void) | null = null;
   /** Selection directe : touches 1 a 9. */
   onSelectWeapon: ((index: number) => void) | null = null;
   /** Arme suivante ou precedente, a la molette. */
@@ -102,6 +104,9 @@ export class Input {
 
   private releaseAll = (): void => {
     this.pressed.clear();
+    // Fenetre quittee l'arme epaulee : elle redescend, sinon elle y reste.
+    this.onAim?.(false);
+    this.onFire?.(false);
   };
 
   private handleLockChange = (): void => {
@@ -125,10 +130,12 @@ export class Input {
       return;
     }
     if (event.button === 0) this.onFire?.(true);
+    if (event.button === 2) this.onAim?.(true);
   };
 
   private handleMouseUp = (event: MouseEvent): void => {
     if (event.button === 0) this.onFire?.(false);
+    if (event.button === 2) this.onAim?.(false);
   };
 }
 

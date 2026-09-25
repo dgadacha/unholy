@@ -46,6 +46,7 @@ import type { UIManager } from '../ui/core/UIManager';
 import { ReflectionProbeManager } from '../renderer/lighting/ReflectionProbeManager';
 import { FPSCameraEffects } from '../camera/FPSCameraEffects';
 import { ViewModel, type ViewModelSettings, type DarkEnvironment } from './weapons/ViewModel';
+import { VIEWMODEL } from './weapons/ViewmodelFeel';
 import { weaponPreset } from './weapons/WeaponPreset';
 import type { WeaponId } from './weapons/WeaponDefs';
 import type { GridSample } from '../bsp/LightGrid';
@@ -300,6 +301,12 @@ export class Session {
       }
       this.weapons.setFiring(held);
     };
+    /*
+     * Visee epaulee. Elle n'appartient pas a l'arme mais au porte-arme : c'est
+     * lui qui monte le modele a l'oeil, et le champ de vision du monde suit ce
+     * qu'il a atteint, pour que l'image et la pose ne se separent jamais.
+     */
+    this.input.onAim = (held) => this.viewModel?.setAiming(held && this.player.alive);
     // Un tir ne part que si l'arme est en main et chargee.
     this.weapons.canFire = (weapon) => this.player.owned.has(weapon) && this.player.canFire(weapon);
     this.weapons.onEmpty = (weapon) => {
@@ -1344,8 +1351,15 @@ export class Session {
     this.lastYaw = currentYaw;
     this.lastPitch = currentPitch;
 
-    if (Math.abs(this.camera.fov - viewEffects.fov) > 0.05) {
-      this.camera.fov = viewEffects.fov;
+    /*
+     * Champ de vision : celui des effets, resserre par l'epaule. Le
+     * resserrement suit la montee de l'arme et non le bouton, sinon l'image se
+     * resserrerait avant que l'optique ne soit arrivee.
+     */
+    const aim = this.viewModel?.aiming ?? 0;
+    const wantedFov = viewEffects.fov + (VIEWMODEL.aim.worldFov - viewEffects.fov) * aim;
+    if (Math.abs(this.camera.fov - wantedFov) > 0.05) {
+      this.camera.fov = wantedFov;
       this.camera.updateProjectionMatrix();
     }
     this.viewModel?.update(viewEffects.motion, delta);

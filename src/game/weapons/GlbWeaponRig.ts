@@ -28,6 +28,17 @@ import { VIEWMODEL } from './ViewmodelFeel';
  */
 export const RIFLE_HOLD = VIEWMODEL.hold;
 
+/**
+ * Bande ou chercher l'optique, en part de la longueur depuis la crosse. Ce
+ * sont les seuls chiffres poses a l'oeil de toute la pose epaulee : ils
+ * disent seulement ou, sur un fusil, se monte une optique.
+ */
+const SIGHT_BAND: [number, number] = [0.34, 0.76];
+
+/** Points de travail de la prise en main : la pose tenue, et la pose epaulee. */
+const HOLD_POINT = new THREE.Vector3();
+const AIM_POINT = new THREE.Vector3();
+
 /** Recul d'un coup : retrait le long du canon, en fraction de la longueur. */
 const KICK_BACK = 0.035;
 /** Et le nez qui se leve, en radians. */
@@ -44,12 +55,39 @@ export class GlbWeaponRig implements WeaponRig {
   readonly muzzle = new THREE.Group();
 
   private readonly model: THREE.Object3D;
+  /** Centre de la fenetre de l'optique, dans le repere du modele normalise. */
+  private readonly sightAt = new THREE.Vector3();
+  /**
+   * Longueur de l'arme en arriere de l'optique, dans ce meme repere.
+   *
+   * C'est elle qui commande la distance de l'epaule. Un vrai tireur a l'oeil
+   * derriere son optique et la crosse contre l'epaule, donc a cote de sa tete ;
+   * une camera posee a l'oeil aurait alors la crosse derriere elle, et le plan
+   * de coupe la trancherait en un objet gris plein ecran. L'arme est donc
+   * tenue assez loin pour tenir entiere devant la camera, et cette distance se
+   * deduit du modele au lieu d'etre choisie.
+   */
+  private readonly rearToSight: number;
+  /** Hauteur de l'arme sous le sommet de l'optique, meme repere. */
+  private readonly sightHeight: number;
+  /** Point vise une fois la descente appliquee : c'est lui qu'on aligne. */
+  private readonly aimedSight = new THREE.Vector3();
+  /** Epaule en cours, de zero a un. */
+  private aim = 0;
   /** Age du dernier coup, et du rangement ; negatif quand il n'y en a pas. */
   private shotAge = 100;
   private dropAge = -1;
 
-  private constructor(model: THREE.Object3D, muzzleAt: THREE.Vector3) {
+  private constructor(
+    model: THREE.Object3D,
+    muzzleAt: THREE.Vector3,
+    sightAt: THREE.Vector3,
+    box: THREE.Box3,
+  ) {
     this.model = model;
+    this.sightAt.copy(sightAt);
+    this.rearToSight = sightAt.x - box.min.x;
+    this.sightHeight = sightAt.z - box.min.z;
     this.group.name = 'glb-weapon';
     /*
      * La main : le modele est agrandi a la longueur voulue et tenu en avant,
@@ -74,7 +112,8 @@ export class GlbWeaponRig implements WeaponRig {
 
     // Le modele est deja ramene a une longueur de un, canon vers l'avant.
     const box = new THREE.Box3().setFromObject(model);
-    return new GlbWeaponRig(model, barrelEnd(model, box));
+    const sightAt = sightLine(model, box);
+    return new GlbWeaponRig(model, barrelEnd(model, box), sightAt, box);
   }
 
   /**
@@ -84,14 +123,67 @@ export class GlbWeaponRig implements WeaponRig {
    */
   applyHold(): void {
     const hold = RIFLE_HOLD;
+    const aim = this.aim;
     this.group.scale.setScalar(hold.length);
+
     /*
      * La position d'un groupe est exprimee dans le repere de son parent, pas
      * dans le sien : elle ne se divise donc pas par l'echelle. Divisee, l'arme
      * se posait a une unite de l'oeil et la moitie passait derriere lui.
      */
-    this.group.position.set(hold.forward, -hold.right, -hold.down);
-    this.group.rotation.set((hold.roll * Math.PI) / 180, 0, (hold.yaw * Math.PI) / 180);
+    HOLD_POINT.set(hold.forward, -hold.right, -hold.down);
+
+    if (aim > 0) {
+      // Lit le point vise, qui met a jour le vecteur de travail.
+      this.sightPoint;
+      /*
+       * Pose epaulee. Elle n'est pas reglee a la main : on demande que le
+       * centre de la fenetre de l'optique tombe sur l'axe du regard, et la
+       * place de l'arme s'en deduit. Une pose reglee a l'oeil serait juste sur
+       * ce modele-ci et fausse sur le suivant.
+       */
+      const distance = Math.max(
+        VIEWMODEL.aim.distance,
+        this.rearToSight * hold.length + VIEWMODEL.aim.clearance,
+      );
+      AIM_POINT.copy(this.aimedSight).multiplyScalar(hold.length);
+      AIM_POINT.set(distance - AIM_POINT.x, -AIM_POINT.y, -AIM_POINT.z);
+      HOLD_POINT.lerp(AIM_POINT, aim);
+    }
+
+    this.group.position.copy(HOLD_POINT);
+    // Epaulee, l'arme est droite : le lacet et l'inclinaison de presentation
+    // s'effacent, sinon l'optique arriverait de travers sur l'axe.
+    const straighten = 1 - aim;
+    this.group.rotation.set(
+      (hold.roll * Math.PI * straighten) / 180,
+      0,
+      (hold.yaw * Math.PI * straighten) / 180,
+    );
+  }
+
+  /** Epaule l'arme, ou la redescend. La valeur va de zero a un. */
+  setAim(amount: number): void {
+    const wanted = Math.min(1, Math.max(0, amount));
+    if (wanted === this.aim) return;
+    this.aim = wanted;
+    this.applyHold();
+  }
+
+  /**
+   * Ou se pose le point rouge, et ce qu'on amene sur l'axe du regard.
+   *
+   * Le sommet de l'optique, descendu d'un reglage. L'optique de ce modele est
+   * pleine : sa glace est peinte sur le maillage, et il n'y a rien a voir au
+   * travers. On ne vise donc pas dedans mais juste au-dessus, comme au guidon
+   * : le boitier occupe le bas de l'image, le point rouge est sur l'axe, et le
+   * couloir reste visible. Une optique reellement percee se viserait dedans,
+   * et ce reglage descendrait d'autant.
+   */
+  get sightPoint(): THREE.Vector3 {
+    return this.aimedSight
+      .copy(this.sightAt)
+      .setZ(this.sightAt.z - this.sightHeight * VIEWMODEL.aim.sightDrop);
   }
 
   fire(): void {
@@ -184,4 +276,47 @@ function barrelEnd(model: THREE.Object3D, box: THREE.Box3): THREE.Vector3 {
     return new THREE.Vector3(box.max.x, (box.min.y + box.max.y) / 2, (box.min.z + box.max.z) / 2);
   }
   return new THREE.Vector3(box.max.x, sumY / count, sumZ / count);
+}
+
+/**
+ * Ligne de visee : le dessus de l'optique.
+ *
+ * Personne ne la declare dans le fichier, et le modele n'a qu'un seul maillage
+ * sans nom : il faut donc la deduire. Ce qui depasse le plus haut sur le
+ * boitier est l'optique, a condition de ne regarder ni la crosse, qui monte
+ * aussi haut a l'arriere, ni le guidon, qui monte aussi haut a l'avant. La
+ * bande retenue est donc celle ou une optique se monte : le tiers arriere
+ * exclu, le quart avant aussi.
+ */
+function sightLine(model: THREE.Object3D, box: THREE.Box3): THREE.Vector3 {
+  const length = box.max.x - box.min.x;
+  const from = box.min.x + length * SIGHT_BAND[0];
+  const to = box.min.x + length * SIGHT_BAND[1];
+  const point = new THREE.Vector3();
+  let topZ = -Infinity;
+  let topX = (from + to) / 2;
+  let sumY = 0;
+  let count = 0;
+
+  model.updateWorldMatrix(true, true);
+  model.traverse((object) => {
+    const mesh = object as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const positions = mesh.geometry.getAttribute('position');
+    if (!positions) return;
+    for (let i = 0; i < positions.count; i++) {
+      point.fromBufferAttribute(positions as THREE.BufferAttribute, i);
+      point.applyMatrix4(mesh.matrixWorld);
+      if (point.x < from || point.x > to) continue;
+      sumY += point.y;
+      count++;
+      if (point.z > topZ) {
+        topZ = point.z;
+        topX = point.x;
+      }
+    }
+  });
+
+  if (count === 0) return new THREE.Vector3((from + to) / 2, 0, box.max.z);
+  return new THREE.Vector3(topX, sumY / count, topZ);
 }

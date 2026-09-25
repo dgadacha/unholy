@@ -85,6 +85,49 @@ export const VIEWMODEL = {
     turn: 0.004,
   },
 
+  /**
+   * Visee epaulee.
+   *
+   * L'arme monte a l'oeil et l'optique vient sur l'axe du regard. Ce n'est pas
+   * qu'une pose : c'est un marche. Le joueur vise mieux, mais son champ se
+   * resserre d'un tiers et l'arme occupe le bas de l'image. Dans un immeuble
+   * ou les demons arrivent par les murs et les plafonds, retrecir ce qu'on
+   * voit est un risque, et c'est ce qui rend le geste interessant.
+   */
+  aim: {
+    /**
+     * Distance de l'optique a l'oeil, en unites de carte, et garde laissee
+     * derriere la crosse. La plus grande des deux l'emporte : la garde suffit
+     * en general, la distance n'etant qu'un plancher pour les armes courtes.
+     */
+    distance: 13,
+    clearance: 12,
+    /**
+     * Descente du point vise sous le sommet de l'optique, en part de la
+     * hauteur de l'arme. A zero, on vise le dessus du boitier ; en augmentant,
+     * on descend dans l'optique, ce qui n'a de sens que si sa glace est
+     * reellement percee.
+     */
+    sightDrop: 0,
+    /** Montee a l'epaule et retour, en secondes. */
+    raise: 0.13,
+    lower: 0.1,
+    /** Champ de vision du monde une fois epaule, en degres. */
+    worldFov: 62,
+    /**
+     * Et celui de l'arme, en part du sien. Il ne suit pas le monde : resserrer
+     * la camera de l'arme ne rapproche pas le decor, elle grossit l'arme, qui
+     * couvrait alors l'ecran entier. Ce qui amene l'optique a l'oeil est la
+     * pose, pas l'objectif ; il ne reste ici qu'un rien de resserrement, pour
+     * que le geste ne soit pas parfaitement plat.
+     */
+    weaponZoom: 0.94,
+    /** Ce qui reste des mouvements une fois epaule. */
+    motion: 0.35,
+    /** Taille du point rouge dans l'optique, en unites de la scene de l'arme. */
+    dot: 0.5,
+  },
+
   /** Recul : ce que fait l'arme, pas ce que fait la visee. */
   recoil: {
     /** Retrait le long du canon et soulevement, en unites de carte. */

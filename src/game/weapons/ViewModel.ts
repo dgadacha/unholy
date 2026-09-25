@@ -111,6 +111,38 @@ interface WeaponModel {
  * centimetres du canon, et une petite image agrandie d'autant se voit comme un
  * carre flou. Deux cent cinquante-six pixels suffisent a ce qu'elle tienne.
  */
+/**
+ * Point rouge de l'optique : un coeur net et un halo tres court.
+ *
+ * Un disque uniforme se lit comme une gommette ; ce qu'on veut est une source
+ * qui eblouit un peu, comme un point projete sur une glace.
+ */
+function sightDotTexture(): THREE.Texture {
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext('2d');
+  if (!context) return new THREE.Texture();
+
+  const half = size / 2;
+  context.fillStyle = '#000';
+  context.fillRect(0, 0, size, size);
+  const gradient = context.createRadialGradient(half, half, 0, half, half, half);
+  gradient.addColorStop(0, 'rgba(255, 220, 210, 1)');
+  gradient.addColorStop(0.22, 'rgba(255, 60, 40, 1)');
+  gradient.addColorStop(0.45, 'rgba(210, 20, 10, 0.5)');
+  gradient.addColorStop(1, 'rgba(160, 0, 0, 0)');
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, size, size);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.generateMipmaps = false;
+  texture.minFilter = THREE.LinearFilter;
+  return texture;
+}
+
 function muzzleFlashTexture(): THREE.Texture {
   const size = 256;
   const canvas = document.createElement('canvas');
@@ -208,6 +240,29 @@ export class ViewModel {
   private flashAge = 1;
   /** Taille tiree au hasard pour l'eclat en cours, en part de la normale. */
   private flashSize = 1;
+  /** Epaule demandee, et epaule atteinte : la seconde suit la premiere. */
+  private aimWanted = 0;
+  private aimNow = 0;
+  /**
+   * Point rouge de l'optique.
+   *
+   * Il est dans la scene de l'arme, a la fenetre du viseur, et non dessine sur
+   * l'ecran : un reticule colle au centre de l'image reste immobile quand
+   * l'arme bouge, ce qui trahit le dessin. Celui-ci bouge avec l'arme, comme
+   * le ferait un point projete dans une vraie optique.
+   */
+  private readonly sightDot = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: sightDotTexture(),
+      blending: THREE.AdditiveBlending,
+      transparent: true,
+      depthWrite: false,
+      depthTest: false,
+      toneMapped: false,
+      opacity: 0,
+    }),
+  );
+  private readonly sightAnchor = new THREE.Object3D();
   private recoilRoll = 0;
   /** Eclat du depart de coup, dans la scene de l'arme. */
   private readonly flashLight = new THREE.PointLight(0xfff0d0, 0, 60, 1.4);
@@ -273,6 +328,12 @@ export class ViewModel {
     this.flashSprite.visible = false;
     this.flashSprite.renderOrder = 10;
     this.muzzleAnchor.add(this.flashSprite);
+
+    this.sightAnchor.name = 'sight-anchor';
+    this.sightDot.visible = false;
+    this.sightDot.renderOrder = 11;
+    this.sightAnchor.add(this.sightDot);
+    this.holder.add(this.sightAnchor);
 
     /*
      * Eclairage propre a l'arme. La scene du monde n'etant pas rendue ici, le
@@ -389,10 +450,29 @@ export class ViewModel {
     this.fillLight.intensity = 0.04 + room.beam * 0.3;
   }
 
-  /** Champ de vision applique : reglage du joueur, ecarte par l'arme. */
+  /** L'arme est epaulee tant que c'est demande. */
+  setAiming(on: boolean): void {
+    this.aimWanted = on ? 1 : 0;
+  }
+
+  /** Part d'epaule atteinte : le monde s'en sert pour son champ de vision. */
+  get aiming(): number {
+    return this.aimNow;
+  }
+
+  /**
+   * Champ de vision applique : reglage du joueur, ecarte par l'arme, puis
+   * resserre par l'epaule.
+   *
+   * L'arme se resserre a peine, et le monde franchement. Les deux au meme
+   * rythme donnent l'inverse de ce qu'on cherche : la camera de l'arme ne
+   * rapproche pas le decor, elle grossit l'arme, qui finit par couvrir
+   * l'ecran. C'est la pose qui amene l'optique a l'oeil.
+   */
   private applyFov(): void {
     const fov = this.settings.fov + (this.preset.fov - REFERENCE_WEAPON_FOV);
-    this.camera.fov = clamp(fov, 40, 110);
+    const aimed = clamp(fov, 40, 110);
+    this.camera.fov = aimed * (1 - this.aimNow * (1 - VIEWMODEL.aim.weaponZoom));
     this.camera.updateProjectionMatrix();
   }
 
@@ -586,6 +666,12 @@ export class ViewModel {
 
     const feel = VIEWMODEL;
     const on = VIEWMODEL_SWITCHES;
+    /*
+     * Epaule, tout s'attenue sans disparaitre. A zero, l'arme redeviendrait
+     * une image collee des qu'on vise, c'est-a-dire au moment ou on la regarde
+     * le plus.
+     */
+    const calm = 1 - this.aimNow * (1 - feel.aim.motion);
 
     // Reception d'une chute : la seule chose qui descende vraiment l'arme.
     this.landingAnchor.position.y = motion.landing * 6;
@@ -597,7 +683,7 @@ export class ViewModel {
      * balancement prenant le relais.
      */
     const still = 1 - Math.min(1, Math.abs(motion.bob.y) / 0.004);
-    const breath = on.breath ? feel.breath.amount * still : 0;
+    const breath = on.breath ? feel.breath.amount * still * calm : 0;
     const slow = Math.sin((this.breathAge / feel.breath.slow) * Math.PI * 2);
     const fast = Math.sin((this.breathAge / feel.breath.fast) * Math.PI * 2 + 1.3);
     this.positionAnchor.position.set(
@@ -608,7 +694,7 @@ export class ViewModel {
     this.positionAnchor.rotation.set(0, 0, on.breath ? slow * feel.breath.turn * still : 0);
 
     // Balancement de la marche : un decalage et un roulis, pas une houle.
-    const bob = on.bob ? 1 : 0;
+    const bob = on.bob ? calm : 0;
     this.bobAnchor.position.set(0, motion.bob.x * feel.bob.shift * bob, motion.bob.y * feel.bob.lift * bob);
     this.bobAnchor.rotation.set(motion.bob.roll * feel.bob.roll * bob, 0, 0);
 
@@ -617,7 +703,7 @@ export class ViewModel {
      * revient : c'est ce qui donne une masse. Les bornes evitent qu'un
      * mouvement de souris brusque ne la sorte du cadre.
      */
-    const sway = on.sway ? 1 : 0;
+    const sway = on.sway ? calm : 0;
     const shift = clamp(motion.sway.x * feel.sway.shift * sway, -feel.sway.maxShift, feel.sway.maxShift);
     const lift = clamp(motion.sway.y * feel.sway.lift * sway, -feel.sway.maxShift, feel.sway.maxShift);
     this.swayAnchor.position.set(0, shift, lift);
@@ -632,7 +718,7 @@ export class ViewModel {
      * franchement sans rendre la visee incontrolable, et c'est justement ce
      * decalage qui la rend physique.
      */
-    const kick = on.recoil ? 1 : 0;
+    const kick = on.recoil ? calm : 0;
     this.recoilAnchor.position.set(
       -motion.recoil.back * feel.recoil.back * kick,
       0,
@@ -644,7 +730,51 @@ export class ViewModel {
       0,
     );
 
+    this.updateAim(delta);
     this.updateFlash(delta);
+  }
+
+  /**
+   * Fait monter l'arme a l'epaule, ou la redescend.
+   *
+   * La montee et la descente n'ont pas la meme duree, et la course est reprise
+   * la ou elle en est : relacher le bouton au milieu du geste redescend depuis
+   * le milieu, sans jamais sauter. C'est ce qui permet de viser une seconde et
+   * de repartir, ce que le couloir demande souvent.
+   */
+  private updateAim(delta: number): void {
+    const feel = VIEWMODEL.aim;
+    const wanted = this.aimWanted;
+    if (wanted !== this.aimNow) {
+      const time = Math.max(0.001, wanted > this.aimNow ? feel.raise : feel.lower);
+      const step = delta / time;
+      this.aimNow = wanted > this.aimNow
+        ? Math.min(wanted, this.aimNow + step)
+        : Math.max(wanted, this.aimNow - step);
+      this.current?.rig.setAim?.(this.aimNow);
+      this.applyFov();
+    }
+
+    /*
+     * Le point rouge n'apparait qu'une fois l'optique arrivee sur l'axe : le
+     * voir glisser vers le centre pendant la montee donnerait un point qui
+     * flotte devant l'arme au lieu d'etre dedans.
+     */
+    const dot = Math.max(0, this.aimNow * 2 - 1);
+    const material = this.sightDot.material as THREE.SpriteMaterial;
+    material.opacity = dot;
+    this.sightDot.visible = dot > 0.01;
+    if (this.sightDot.visible) {
+      const sight = this.current?.rig.sightPoint;
+      if (sight) {
+        this.current!.group.updateWorldMatrix(true, false);
+        this.holder.updateWorldMatrix(true, false);
+        this.scratchPoint.copy(sight).applyMatrix4(this.current!.group.matrixWorld);
+        this.sightAnchor.position.copy(this.holder.worldToLocal(this.scratchPoint));
+      }
+      const size = VIEWMODEL.aim.dot;
+      this.sightDot.scale.set(size, size, size);
+    }
   }
 
   /**
