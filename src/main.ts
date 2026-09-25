@@ -501,12 +501,9 @@ ui.events.on('matchEnd', () => {
   if (mode === 'game') overlay.notify('Match over — press M for the menu', 8000);
 });
 
-menu.onSelect = (page, entry) => {
-  if (page === 'single' && entry === 'start') {
-    // Les regles choisies dans le menu valent pour la partie qui commence.
-    session.setRules(menu.rules);
-    playBuilding();
-  }
+menu.onSelect = (_page, entry) => {
+  // Jouer, c'est entrer dans l'immeuble : il n'y a rien a choisir avant.
+  if (entry === 'play') playBuilding();
   // Outils du moteur : ils demandent les donnees de Quake III, sauf l'arene.
   else if (entry === 'benchmark') void startBenchmark();
   else if (entry === 'bsp') void playFocusMap();

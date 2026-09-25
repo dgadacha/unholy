@@ -238,13 +238,6 @@
   margin-bottom: clamp(12px, 2.4vh, 32px);
 }
 
-.menu-card__map {
-  font-size: clamp(30px, 3.2vw, 58px);
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: var(--menu-text);
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
-}
 
 .menu-card__title {
   margin-top: 6px;
@@ -444,4 +437,61 @@
    HUD du joueur reste lisible dessous. */
 .menu--overlay .menu__footer {
   display: none;
+}
+
+/*
+ * Menu principal : une colonne basse, alignee a gauche.
+ *
+ * La pile centree surmontee d'une fleche est la disposition du moteur
+ * d'origine, et elle se reconnait au premier coup d'oeil. Les entrees
+ * descendent donc dans l'angle bas-gauche, ou elles laissent l'image
+ * respirer : ce qu'on voit derriere le menu est le couloir du jeu, et c'est
+ * lui qu'on veut regarder en arrivant.
+ *
+ * Les autres pages restent centrees : elles portent des listes de reglages,
+ * que la lecture veut au milieu.
+ */
+.menu-screen[data-page='main'] {
+  align-items: flex-start;
+  left: clamp(24px, 7vw, 132px);
+  right: auto;
+  top: auto;
+  bottom: clamp(24px, 7vh, 92px);
+  gap: clamp(4px, 0.6vh, 10px);
+}
+
+.menu-screen[data-page='main'] .menu-item {
+  padding-left: 0;
+  padding-right: clamp(20px, 3vw, 48px);
+  letter-spacing: 0.1em;
+}
+
+/*
+ * L'entree prise avance d'un filet, et non d'une fleche. Un agrandissement
+ * irait mal a une colonne alignee : les mots sauteraient vers la droite.
+ */
+.menu-screen[data-page='main'] .menu-item--active {
+  transform: none;
+}
+
+.menu-screen[data-page='main'] .menu-item--active::before {
+  content: '';
+  position: absolute;
+  left: calc(-1 * clamp(24px, 2.2vw, 42px));
+  top: 50%;
+  width: clamp(14px, 1.2vw, 26px);
+  height: 2px;
+  background: var(--menu-active);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
+}
+
+/* Le format du jeu, en une ligne, au-dessus des entrees. */
+.menu__pitch {
+  margin: 0 0 clamp(14px, 2.4vh, 30px);
+  font-size: clamp(10px, 0.78vw, 13px);
+  font-weight: 500;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--menu-text-muted);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.95);
 }
