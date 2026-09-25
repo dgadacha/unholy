@@ -481,6 +481,10 @@ export function buildBuilding(visual = true): Level {
    */
   const root = builder.build();
   root.add(decor.signs);
+  root.add(decor.fixtures.group);
+  // Les reglettes arrivent un instant apres le decor : elles viennent d'un
+  // fichier, et le niveau, lui, se monte d'un bloc.
+  void decor.fixtures.mount();
   root.add(new THREE.AmbientLight(new THREE.Color('#16242f'), AMBIENT_FLOOR));
   root.add(new THREE.HemisphereLight(new THREE.Color('#16242f'), new THREE.Color('#15110c'), SKY_FLOOR));
 

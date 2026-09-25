@@ -1,11 +1,20 @@
 import * as THREE from 'three';
 import type { Vec3 } from '../../formats/bsp';
 import { BlockBuilder } from '../build/BlockBuilder';
+import { Fluorescents } from './fixtures';
 import type { SurfaceKind } from '../../renderer/materials/Procedural';
 
 /** Residential details share the same collision builder as the architecture. */
+/**
+ * Longueur d'une reglette, en unites du batiment : un metre vingt, la taille
+ * d'un tube de couloir.
+ */
+const FIXTURE_LENGTH = 77;
+
 export class Residential {
   readonly signs = new THREE.Group();
+  /** Les reglettes du plafond, posees ensemble une fois le modele charge. */
+  readonly fixtures = new Fluorescents();
   /**
    * Sources fixes du decor. Chacune porte son intensite de reference et sa
    * facon de faiblir : une lampe de secours sur batterie s'eteint par a-coups
@@ -96,13 +105,23 @@ export class Residential {
    * eu de la lumiere ici.
    */
   neons(floor: number, z: number): void {
-    const tubes = [-540, -40, 520];
+    /*
+     * Entre les poutres, et non dessous : les traverses du plafond passent a
+     * moins cinq cent vingt, zero et cinq cent vingt, et une reglette posee la
+     * se retrouvait coupee en deux par la poutre qui la precede.
+     */
+    const tubes = [-700, -260, 260];
     const alive = tubes[floor % tubes.length];
     for (const x of tubes) {
       const on = x === alive;
-      // Boitier, puis le tube lui-meme, en retrait dessous.
-      this.box([x - 62, 4, z + 146], [x + 62, 34, z + 152], 'metal', '#3f423b', false);
-      this.b.block([x - 54, 9, z + 143], [x + 54, 29, z + 146.5], {
+      /*
+       * La carcasse vient d'un modele, le diffuseur reste bati par le code :
+       * c'est lui qui doit s'allumer, et le modele n'a qu'une matiere, sans
+       * partie separee pour la glace. Le diffuseur est donc glisse dans la
+       * reglette, un peu en retrait sous elle.
+       */
+      this.fixtures.add({ at: [x, 20, z + 149], length: FIXTURE_LENGTH });
+      this.b.block([x - 32, 12, z + 143.5], [x + 32, 27, z + 146], {
         kind: 'glow',
         emissive: on ? '#77887c' : '#1c1f1b',
         solid: false,
